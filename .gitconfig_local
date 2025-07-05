@@ -1,0 +1,9 @@
+# ローカルGit設定: k1LoW/tblsリポジトリへのアクセス防止
+# このプロジェクトでは NTTAT-Higuchi-Hiroyuki/tbls のみを使用
+
+[remote "origin"]
+	url = https://github.com/NTTAT-Higuchi-Hiroyuki/tbls.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+
+# k1LoW/tblsへのリモート追加を防ぐ設定
+# upstream リモートは削除済み
