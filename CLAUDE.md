@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 このプロジェクトの担当者は、日本語でのコミュニケーションを希望しています。ドキュメント・コメントは全て日本語で記載してください。
 
 ## AI実装運用ルール
-- MUST: k1LoW/tbls リポジトリに対する一切の変更、ISSUUE,PRをあげてはならない
 - MUST: ISSUE、PRは、NTTAT-Higuchi-Hiroyuki/tblsリポジトリに対して行うこと
+- MUST: ghコマンド使用時は必ず --repo NTTAT-Higuchi-Hiroyuki/tbls を明示的に指定すること
 
 ## プロジェクト概要
 
