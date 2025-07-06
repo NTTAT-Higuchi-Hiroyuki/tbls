@@ -558,7 +558,7 @@ func (c *Config) MergeAdditionalData(s *schema.Schema) error {
 	if err := mergeAdditionalRelations(s, c.Relations); err != nil {
 		return err
 	}
-	if err := mergeAdditionalComments(s, c.Comments); err != nil {
+	if err := mergeAdditionalComments(s, c.Comments, c); err != nil {
 		return err
 	}
 	return nil
@@ -727,7 +727,7 @@ func mergeAdditionalRelations(s *schema.Schema, relations []AdditionalRelation) 
 	return nil
 }
 
-func mergeAdditionalComments(s *schema.Schema, comments []AdditionalComment) (err error) {
+func mergeAdditionalComments(s *schema.Schema, comments []AdditionalComment, config *Config) (err error) {
 	defer func() {
 		err = errors.WithStack(err)
 	}()
@@ -750,6 +750,11 @@ func mergeAdditionalComments(s *schema.Schema, comments []AdditionalComment) (er
 				return fmt.Errorf("failed to add column comment: %w", err)
 			}
 			column.Comment = comment
+			
+			// 論理名機能が有効な場合、コメントから論理名を抽出
+			if config != nil && config.IsLogicalNameEnabled() && comment != "" {
+				column.SetLogicalNameFromComment(config.LogicalNameDelimiter(), config.LogicalNameFallbackToName())
+			}
 		}
 		for c, labels := range c.ColumnLabels {
 			column, err := table.FindColumnByName(c)
