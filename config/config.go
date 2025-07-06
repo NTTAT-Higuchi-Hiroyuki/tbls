@@ -35,6 +35,9 @@ var DefaultERDistance = 1
 // DefaultLogicalNameDelimiter is the default delimiter for logical name separation.
 const DefaultLogicalNameDelimiter = "|"
 
+// DefaultTableLogicalNameDisplayFormat is the default display format for table logical name.
+const DefaultTableLogicalNameDisplayFormat = "physical_logical"
+
 // Config is tbls config.
 type Config struct {
 	Name   string   `yaml:"name"`
@@ -103,9 +106,16 @@ type ShowColumnTypes struct {
 
 // LogicalName is logical name setting.
 type LogicalName struct {
-	Enabled        bool   `yaml:"enabled"`
-	Delimiter      string `yaml:"delimiter,omitempty"`
-	FallbackToName bool   `yaml:"fallbackToName"`
+	Enabled        bool                   `yaml:"enabled"`
+	Delimiter      string                 `yaml:"delimiter,omitempty"`
+	FallbackToName bool                   `yaml:"fallbackToName"`
+	Table          TableLogicalNameConfig `yaml:"table"`
+}
+
+// TableLogicalNameConfig is table logical name setting.
+type TableLogicalNameConfig struct {
+	Enabled       bool   `yaml:"enabled"`
+	DisplayFormat string `yaml:"displayFormat,omitempty"`
 }
 
 // AdditionalRelation is the struct for table relation from yaml.
@@ -621,6 +631,28 @@ func (c *Config) LogicalNameDelimiter() string {
 }
 
 func (c *Config) LogicalNameFallbackToName() bool {
+	return c.Format.LogicalName.FallbackToName
+}
+
+func (c *Config) IsTableLogicalNameEnabled() bool {
+	return c.Format.LogicalName.Enabled && c.Format.LogicalName.Table.Enabled
+}
+
+func (c *Config) TableLogicalNameDisplayFormat() string {
+	if c.Format.LogicalName.Table.DisplayFormat != "" {
+		return c.Format.LogicalName.Table.DisplayFormat
+	}
+	return DefaultTableLogicalNameDisplayFormat
+}
+
+func (c *Config) TableLogicalNameDelimiter() string {
+	if c.Format.LogicalName.Delimiter != "" {
+		return c.Format.LogicalName.Delimiter
+	}
+	return DefaultLogicalNameDelimiter
+}
+
+func (c *Config) TableLogicalNameFallbackToName() bool {
 	return c.Format.LogicalName.FallbackToName
 }
 

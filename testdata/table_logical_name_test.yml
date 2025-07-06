@@ -1,0 +1,10 @@
+---
+name: table_logical_name_test
+format:
+  logicalName:
+    enabled: true
+    delimiter: "|"
+    fallbackToName: true
+    table:
+      enabled: true
+      displayFormat: "logical_physical"

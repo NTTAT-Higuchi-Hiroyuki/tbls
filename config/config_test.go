@@ -45,6 +45,12 @@ func TestLoadDefault(t *testing.T) {
 	if want := false; config.Format.LogicalName.FallbackToName != want {
 		t.Errorf("got %v\nwant %v", config.Format.LogicalName.FallbackToName, want)
 	}
+	if want := false; config.Format.LogicalName.Table.Enabled != want {
+		t.Errorf("got %v\nwant %v", config.Format.LogicalName.Table.Enabled, want)
+	}
+	if want := ""; config.Format.LogicalName.Table.DisplayFormat != want {
+		t.Errorf("got %v\nwant %v", config.Format.LogicalName.Table.DisplayFormat, want)
+	}
 }
 
 func TestLoadConfigFile(t *testing.T) {
@@ -731,6 +737,84 @@ func TestLogicalNameConfigStructure(t *testing.T) {
 	}
 	if !config.LogicalNameFallbackToName() {
 		t.Error("LogicalNameFallbackToName() should return true after setting FallbackToName = true")
+	}
+}
+
+func TestTableLogicalNameConfigStructure(t *testing.T) {
+	// Test table logical name configuration (scope of #24)
+	config, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test default values
+	if enabled := config.IsTableLogicalNameEnabled(); enabled != false {
+		t.Errorf("IsTableLogicalNameEnabled() should return false by default, got %v", enabled)
+	}
+
+	if format := config.TableLogicalNameDisplayFormat(); format != DefaultTableLogicalNameDisplayFormat {
+		t.Errorf("TableLogicalNameDisplayFormat() = %v, want %v", format, DefaultTableLogicalNameDisplayFormat)
+	}
+
+	if delimiter := config.TableLogicalNameDelimiter(); delimiter != DefaultLogicalNameDelimiter {
+		t.Errorf("TableLogicalNameDelimiter() = %v, want %v", delimiter, DefaultLogicalNameDelimiter)
+	}
+
+	if fallback := config.TableLogicalNameFallbackToName(); fallback != false {
+		t.Errorf("TableLogicalNameFallbackToName() should return false by default, got %v", fallback)
+	}
+
+	// Test setting values
+	config.Format.LogicalName.Enabled = true
+	config.Format.LogicalName.Table.Enabled = true
+	config.Format.LogicalName.Table.DisplayFormat = "logical_physical"
+	config.Format.LogicalName.Delimiter = ";"
+	config.Format.LogicalName.FallbackToName = true
+
+	if !config.IsTableLogicalNameEnabled() {
+		t.Error("IsTableLogicalNameEnabled() should return true after setting Enabled = true")
+	}
+
+	if format := config.TableLogicalNameDisplayFormat(); format != "logical_physical" {
+		t.Errorf("TableLogicalNameDisplayFormat() = %v, want 'logical_physical'", format)
+	}
+
+	if delimiter := config.TableLogicalNameDelimiter(); delimiter != ";" {
+		t.Errorf("TableLogicalNameDelimiter() = %v, want ';'", delimiter)
+	}
+
+	if !config.TableLogicalNameFallbackToName() {
+		t.Error("TableLogicalNameFallbackToName() should return true after setting FallbackToName = true")
+	}
+}
+
+func TestLoadTableLogicalNameConfig(t *testing.T) {
+	// Test loading table logical name configuration from file (scope of #24)
+	configFilepath := filepath.Join(testdataDir(), "table_logical_name_test.yml")
+	config, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = config.Load(configFilepath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test that values are loaded correctly
+	if !config.IsTableLogicalNameEnabled() {
+		t.Error("IsTableLogicalNameEnabled() should return true when loaded from config file")
+	}
+
+	if format := config.TableLogicalNameDisplayFormat(); format != "logical_physical" {
+		t.Errorf("TableLogicalNameDisplayFormat() = %v, want 'logical_physical'", format)
+	}
+
+	if delimiter := config.TableLogicalNameDelimiter(); delimiter != "|" {
+		t.Errorf("TableLogicalNameDelimiter() = %v, want '|'", delimiter)
+	}
+
+	if !config.TableLogicalNameFallbackToName() {
+		t.Error("TableLogicalNameFallbackToName() should return true when loaded from config file")
 	}
 }
 
