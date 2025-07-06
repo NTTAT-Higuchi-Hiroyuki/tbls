@@ -1,0 +1,60 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/go
+{
+  "name": "tbls Development Environment",
+  // Docker Composeを使用して複数のデータベースサービスと共に開発環境を構築
+  "dockerComposeFile": "compose.yml",
+  "service": "devcontainer",
+  "workspaceFolder": "/workspace",
+  // 開発に必要なポートをフォワード
+  "forwardPorts": [
+    55432, // PostgreSQL 9.5
+    55413, // PostgreSQL 15
+    33306, // MySQL 5.6
+    33308, // MySQL 8
+    33309, // MariaDB
+    11433, // MS SQL Server
+    18000, // DynamoDB Local
+    27017, // MongoDB
+    8123, // ClickHouse HTTP
+    9000 // ClickHouse Native
+  ],
+  // コンテナ作成後のセットアップコマンド
+  "postCreateCommand": "go mod download && make build",
+  // VS Code拡張機能とカスタマイズ
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "ms-azuretools.vscode-docker",
+        "ms-vscode.makefile-tools",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+        "mtxr.sqltools-driver-mysql",
+        "mtxr.sqltools-driver-mssql"
+      ],
+      "settings": {
+        "go.toolsManagement.checkForUpdates": "local",
+        "go.useLanguageServer": true,
+        "go.lintTool": "golangci-lint",
+        "go.lintFlags": [
+          "--fast"
+        ],
+        "editor.formatOnSave": true,
+        "go.formatTool": "goimports"
+      }
+    }
+  },
+  // 開発時の環境変数
+  "remoteEnv": {
+    "TBLS_TEST_PG_95_DSN": "postgres://postgres:pgpass@postgres95:5432/testdb?sslmode=disable",
+    "TBLS_TEST_PG_DSN": "postgres://postgres:pgpass@postgres:5432/testdb?sslmode=disable",
+    "TBLS_TEST_MYSQL_56_DSN": "root:mypass@tcp(mysql56:3306)/testdb",
+    "TBLS_TEST_MYSQL_DSN": "root:mypass@tcp(mysql:3306)/testdb",
+    "TBLS_TEST_MARIADB_DSN": "root:mypass@tcp(mariadb:3306)/testdb",
+    "TBLS_TEST_MSSQL_DSN": "sqlserver://sa:MSSQLServer-Passw0rd@mssql:1433/master",
+    "TBLS_TEST_DYNAMODB_ENDPOINT": "http://dynamodb:8000",
+    "TBLS_TEST_MONGO_DSN": "mongodb://mongoadmin:secret@mongo:27017/test?authSource=admin",
+    "TBLS_TEST_CLICKHOUSE_DSN": "clickhouse://clickhouse:9000/testdb"
+  }
+}
