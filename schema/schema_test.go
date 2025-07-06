@@ -368,3 +368,198 @@ func newTestSchema(t *testing.T) *Schema {
 	}
 	return s
 }
+
+func TestTableLogicalNameMethods(t *testing.T) {
+	tests := []struct {
+		name            string
+		table           *Table
+		delimiter       string
+		fallbackToName  bool
+		expectedLogical string
+		expectedComment string
+		expectedDisplay string
+	}{
+		{
+			name: "区切り文字ありのコメント分割",
+			table: &Table{
+				Name:    "users",
+				Comment: "ユーザーマスタ|システムのユーザー情報を管理",
+			},
+			delimiter:       "|",
+			fallbackToName:  true,
+			expectedLogical: "ユーザーマスタ",
+			expectedComment: "システムのユーザー情報を管理",
+			expectedDisplay: "users（ユーザーマスタ）",
+		},
+		{
+			name: "区切り文字なしでフォールバック有効",
+			table: &Table{
+				Name:    "posts",
+				Comment: "Posts table",
+			},
+			delimiter:       "|",
+			fallbackToName:  true,
+			expectedLogical: "posts",
+			expectedComment: "Posts table",
+			expectedDisplay: "posts",
+		},
+		{
+			name: "区切り文字なしでフォールバック無効",
+			table: &Table{
+				Name:    "posts",
+				Comment: "Posts table",
+			},
+			delimiter:       "|",
+			fallbackToName:  false,
+			expectedLogical: "",
+			expectedComment: "Posts table",
+			expectedDisplay: "posts",
+		},
+		{
+			name: "空コメントでフォールバック有効",
+			table: &Table{
+				Name:    "comments",
+				Comment: "",
+			},
+			delimiter:       "|",
+			fallbackToName:  true,
+			expectedLogical: "comments",
+			expectedComment: "",
+			expectedDisplay: "comments",
+		},
+		{
+			name: "空コメントでフォールバック無効",
+			table: &Table{
+				Name:    "comments",
+				Comment: "",
+			},
+			delimiter:       "|",
+			fallbackToName:  false,
+			expectedLogical: "",
+			expectedComment: "",
+			expectedDisplay: "comments",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// SetLogicalNameFromCommentのテスト
+			tt.table.SetLogicalNameFromComment(tt.delimiter, tt.fallbackToName)
+
+			if tt.table.LogicalName != tt.expectedLogical {
+				t.Errorf("LogicalName = %v, want %v", tt.table.LogicalName, tt.expectedLogical)
+			}
+
+			if tt.table.Comment != tt.expectedComment {
+				t.Errorf("Comment = %v, want %v", tt.table.Comment, tt.expectedComment)
+			}
+
+			// GetLogicalNameOrFallbackのテスト
+			logical := tt.table.GetLogicalNameOrFallback(tt.fallbackToName)
+			expectedForFallback := tt.expectedLogical
+			if expectedForFallback == "" && tt.fallbackToName {
+				expectedForFallback = tt.table.Name
+			}
+			if logical != expectedForFallback {
+				t.Errorf("GetLogicalNameOrFallback() = %v, want %v", logical, expectedForFallback)
+			}
+
+			// GetDisplayNameのテスト（physical_logical）
+			display := tt.table.GetDisplayName("physical_logical")
+			if display != tt.expectedDisplay {
+				t.Errorf("GetDisplayName(physical_logical) = %v, want %v", display, tt.expectedDisplay)
+			}
+		})
+	}
+}
+
+func TestTableGetDisplayNameFormats(t *testing.T) {
+	table := &Table{
+		Name:        "public.users",
+		LogicalName: "ユーザーマスタ",
+	}
+
+	tests := []struct {
+		name           string
+		displayFormat  string
+		expectedResult string
+	}{
+		{
+			name:           "physical_logical形式",
+			displayFormat:  "physical_logical",
+			expectedResult: "public.users（ユーザーマスタ）",
+		},
+		{
+			name:           "logical_physical形式",
+			displayFormat:  "logical_physical",
+			expectedResult: "ユーザーマスタ（public.users）",
+		},
+		{
+			name:           "不明な形式",
+			displayFormat:  "unknown",
+			expectedResult: "public.users",
+		},
+		{
+			name:           "空の形式",
+			displayFormat:  "",
+			expectedResult: "public.users",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := table.GetDisplayName(tt.displayFormat)
+			if result != tt.expectedResult {
+				t.Errorf("GetDisplayName(%s) = %v, want %v", tt.displayFormat, result, tt.expectedResult)
+			}
+		})
+	}
+}
+
+func TestTableLogicalNameEdgeCases(t *testing.T) {
+	t.Run("論理名と物理名が同じ場合", func(t *testing.T) {
+		table := &Table{
+			Name:        "users",
+			LogicalName: "users",
+		}
+
+		result := table.GetDisplayName("physical_logical")
+		if result != "users" {
+			t.Errorf("GetDisplayName() = %v, want %v", result, "users")
+		}
+	})
+
+	t.Run("複数の区切り文字がある場合", func(t *testing.T) {
+		table := &Table{
+			Name:    "users",
+			Comment: "ユーザー|マスタ|テーブル|説明",
+		}
+
+		table.SetLogicalNameFromComment("|", false)
+		
+		if table.LogicalName != "ユーザー" {
+			t.Errorf("LogicalName = %v, want %v", table.LogicalName, "ユーザー")
+		}
+
+		if table.Comment != "マスタ|テーブル|説明" {
+			t.Errorf("Comment = %v, want %v", table.Comment, "マスタ|テーブル|説明")
+		}
+	})
+
+	t.Run("前後にスペースがある場合", func(t *testing.T) {
+		table := &Table{
+			Name:    "users",
+			Comment: "  ユーザーマスタ  |  システムのユーザー情報を管理  ",
+		}
+
+		table.SetLogicalNameFromComment("|", false)
+		
+		if table.LogicalName != "ユーザーマスタ" {
+			t.Errorf("LogicalName = %v, want %v", table.LogicalName, "ユーザーマスタ")
+		}
+
+		if table.Comment != "システムのユーザー情報を管理" {
+			t.Errorf("Comment = %v, want %v", table.Comment, "システムのユーザー情報を管理")
+		}
+	})
+}

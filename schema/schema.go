@@ -171,6 +171,7 @@ type Table struct {
 	Name             string
 	Type             string
 	Comment          string
+	LogicalName      string
 	Columns          []*Column
 	Viewpoints       []*TableViewpoint
 	Indexes          []*Index
@@ -662,6 +663,54 @@ func (t *Table) CollectTablesAndRelations(distance int, root bool) ([]*Table, []
 	}
 
 	return uTables, uRelations, nil
+}
+
+// SetLogicalNameFromComment テーブルコメントから論理名を抽出
+func (t *Table) SetLogicalNameFromComment(delimiter string, fallbackToName bool) {
+	if t.Comment == "" {
+		if fallbackToName {
+			t.LogicalName = t.Name
+		}
+		return
+	}
+
+	parts := strings.SplitN(t.Comment, delimiter, 2)
+	if len(parts) == 2 {
+		t.LogicalName = strings.TrimSpace(parts[0])
+		t.Comment = strings.TrimSpace(parts[1])
+	} else {
+		if fallbackToName {
+			t.LogicalName = t.Name
+		}
+	}
+}
+
+// GetLogicalNameOrFallback 論理名を取得、なければフォールバック
+func (t *Table) GetLogicalNameOrFallback(fallbackToName bool) string {
+	if t.LogicalName != "" {
+		return t.LogicalName
+	}
+	if fallbackToName {
+		return t.Name
+	}
+	return ""
+}
+
+// GetDisplayName 設定に基づいてテーブル表示名を生成
+func (t *Table) GetDisplayName(displayFormat string) string {
+	logicalName := t.LogicalName
+	if logicalName == "" || logicalName == t.Name {
+		return t.Name
+	}
+
+	switch displayFormat {
+	case "logical_physical":
+		return fmt.Sprintf("%s（%s）", logicalName, t.Name)
+	case "physical_logical":
+		return fmt.Sprintf("%s（%s）", t.Name, logicalName)
+	default:
+		return t.Name
+	}
 }
 
 func sameElements(a, b []string) bool {
