@@ -1,0 +1,55 @@
+# 論理名出力モードを有効にした設定ファイル（PostgreSQL用）
+# DSNは実際のPostgreSQLデータベースに合わせて変更してください
+dsn: postgres://postgres:pgpass@localhost:55413/testdb?sslmode=disable
+
+# 論理名機能の設定
+format:
+  logicalName:
+    enabled: true        # 論理名出力を有効化
+    delimiter: "|"       # 論理名と説明の区切り文字
+    fallbackToName: true # 論理名がない場合は物理名を使用
+
+# ドキュメント出力ディレクトリ
+docPath: docs
+
+# ER図設定（日本語を含む場合はフォント指定が必要）
+er:
+  format: svg
+  comment: true
+  # 日本語フォントのパス（環境に応じて変更）
+  # macOS:
+  # font: "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
+  # Windows:
+  # font: "C:/Windows/Fonts/msgothic.ttc"
+  # Linux:
+  # font: "/usr/share/fonts/truetype/fonts-japanese-gothic.ttf"
+
+# コメント設定の例（論理名付き）
+# "論理名|説明" の形式で記述
+# PostgreSQLの実際のテーブルに合わせてコメント
+comments:
+  - table: public.users
+    tableComment: "ユーザーマスタ|システムのユーザー情報を管理"
+    columnComments:
+      id: "ユーザーID|ユーザーを一意に識別するID"
+      username: "ユーザー名|ユーザーの表示名"
+      password: "パスワード|ハッシュ化されたパスワード"
+      email: "メールアドレス|ログイン用メールアドレス"
+      created: "作成日時|レコードの作成日時"
+      updated: "更新日時|レコードの最終更新日時"
+
+# 日本語辞書設定（必要に応じて）
+dict:
+  Tables: テーブル一覧
+  Description: 説明
+  Columns: カラム一覧
+  Indexes: インデックス一覧
+  Constraints: 制約一覧
+  Name: 名前
+  "Logical Name": 論理名
+  Comment: コメント
+  Type: データ型
+  Default: デフォルト値
+  Nullable: NULL許可
+  Children: 子テーブル
+  Parents: 親テーブル

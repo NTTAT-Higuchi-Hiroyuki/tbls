@@ -39,8 +39,13 @@ CREATE TABLE users (
   created timestamp NOT NULL,
   updated timestamp
 );
-COMMENT ON TABLE users IS 'Users table';
-COMMENT ON COLUMN users.email IS 'ex. user@example.com';
+COMMENT ON TABLE users IS 'ユーザーマスタ|システムのユーザー情報を管理';
+COMMENT ON COLUMN users.id IS 'ユーザーID|ユーザーを一意に識別するID';
+COMMENT ON COLUMN users.username IS 'ユーザー名|ユーザーの表示名';
+COMMENT ON COLUMN users.password IS 'パスワード|ハッシュ化されたパスワード';
+COMMENT ON COLUMN users.email IS 'メールアドレス|ログイン用メールアドレス';
+COMMENT ON COLUMN users.created IS '作成日時|レコードの作成日時';
+COMMENT ON COLUMN users.updated IS '更新日時|レコードの最終更新日時';
 
 CREATE TABLE user_options (
   user_id int PRIMARY KEY,
