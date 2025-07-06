@@ -10,5 +10,11 @@ type Driver interface {
 	Info() (*schema.Driver, error)
 }
 
+// ConfigurableDriver is the interface for drivers that can accept configuration.
+type ConfigurableDriver interface {
+	Driver
+	SetLogicalNameConfig(delimiter string, fallbackToName bool)
+}
+
 // Option is the type for change Config.
 type Option func(Driver) error

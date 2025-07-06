@@ -116,7 +116,7 @@ var diffCmd = &cobra.Command{
 			docPath = ""
 		}
 
-		s, err = datasource.Analyze(c.DSN)
+		s, err = datasource.AnalyzeWithConfig(c.DSN, c)
 		if err != nil {
 			return err
 		}
@@ -125,7 +125,7 @@ var diffCmd = &cobra.Command{
 		}
 
 		if c2 != nil {
-			s2, err = datasource.Analyze(c2.DSN)
+			s2, err = datasource.AnalyzeWithConfig(c2.DSN, c2)
 			if err != nil {
 				return err
 			}

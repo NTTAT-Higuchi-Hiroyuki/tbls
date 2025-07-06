@@ -21,14 +21,24 @@ var shadowTables []string
 
 // Sqlite struct.
 type Sqlite struct {
-	db *sql.DB
+	db                        *sql.DB
+	logicalNameDelimiter      string
+	logicalNameFallbackToName bool
 }
 
 // New return new Sqlite.
 func New(db *sql.DB) *Sqlite {
 	return &Sqlite{
-		db: db,
+		db:                        db,
+		logicalNameDelimiter:      "|",
+		logicalNameFallbackToName: false,
 	}
+}
+
+// SetLogicalNameConfig sets the logical name configuration.
+func (s *Sqlite) SetLogicalNameConfig(delimiter string, fallbackToName bool) {
+	s.logicalNameDelimiter = delimiter
+	s.logicalNameFallbackToName = fallbackToName
 }
 
 type fk struct {
@@ -128,10 +138,10 @@ WHERE name != 'sqlite_sequence' AND (type = 'table' OR type = 'view');`)
 				Default:  columnDefault,
 			}
 			
-			// 論理名をコメントから抽出（固定区切り文字"|"を使用）
+			// 論理名をコメントから抽出（設定値を使用）
 			// SQLiteでは現在の実装ではカラムコメントを取得していないため、この処理は実質的に何もしない
 			if column.Comment != "" {
-				column.SetLogicalNameFromComment("|", false)
+				column.SetLogicalNameFromComment(l.logicalNameDelimiter, l.logicalNameFallbackToName)
 			}
 			
 			columns = append(columns, column)

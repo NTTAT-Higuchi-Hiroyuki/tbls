@@ -43,6 +43,11 @@ var supportDriversWithDburl = []string{
 
 // Analyze database.
 func Analyze(dsn config.DSN) (_ *schema.Schema, err error) {
+	return AnalyzeWithConfig(dsn, nil)
+}
+
+// AnalyzeWithConfig database with configuration for logical name processing.
+func AnalyzeWithConfig(dsn config.DSN, cfg *config.Config) (_ *schema.Schema, err error) {
 	defer func() {
 		err = errors.WithStack(err)
 	}()
@@ -152,6 +157,14 @@ func Analyze(dsn config.DSN) (_ *schema.Schema, err error) {
 	default:
 		return s, fmt.Errorf("unsupported driver '%s'", u.Driver)
 	}
+	
+	// Set logical name configuration if available
+	if cfg != nil && cfg.IsLogicalNameEnabled() {
+		if configurableDriver, ok := driver.(drivers.ConfigurableDriver); ok {
+			configurableDriver.SetLogicalNameConfig(cfg.LogicalNameDelimiter(), cfg.LogicalNameFallbackToName())
+		}
+	}
+	
 	err = driver.Analyze(s)
 	if err != nil {
 		return nil, err

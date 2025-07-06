@@ -20,7 +20,9 @@ var reSystemNamed = regexp.MustCompile(`_[^_]+$`)
 
 // Mssql struct.
 type Mssql struct {
-	db *sql.DB
+	db                        *sql.DB
+	logicalNameDelimiter      string
+	logicalNameFallbackToName bool
 }
 
 type relationLink struct {
@@ -33,8 +35,16 @@ type relationLink struct {
 // New ...
 func New(db *sql.DB) *Mssql {
 	return &Mssql{
-		db: db,
+		db:                        db,
+		logicalNameDelimiter:      "|",
+		logicalNameFallbackToName: false,
 	}
+}
+
+// SetLogicalNameConfig sets the logical name configuration.
+func (m *Mssql) SetLogicalNameConfig(delimiter string, fallbackToName bool) {
+	m.logicalNameDelimiter = delimiter
+	m.logicalNameFallbackToName = fallbackToName
 }
 
 func (m *Mssql) Analyze(s *schema.Schema) error {
@@ -150,9 +160,9 @@ ORDER BY c.column_id
 				Comment:  columnComment.String,
 			}
 
-			// 論理名をコメントから抽出（固定区切り文字"|"を使用）
+			// 論理名をコメントから抽出（設定値を使用）
 			if columnComment.Valid && columnComment.String != "" {
-				column.SetLogicalNameFromComment("|", false)
+				column.SetLogicalNameFromComment(m.logicalNameDelimiter, m.logicalNameFallbackToName)
 			}
 
 			columns = append(columns, column)

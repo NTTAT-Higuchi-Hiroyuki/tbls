@@ -60,7 +60,7 @@ var lintCmd = &cobra.Command{
 			return err
 		}
 
-		s, err := datasource.Analyze(c.DSN)
+		s, err := datasource.AnalyzeWithConfig(c.DSN, c)
 		if err != nil {
 			return err
 		}

@@ -19,16 +19,26 @@ var reVersion = regexp.MustCompile(`([0-9]+(\.[0-9]+)*)`)
 
 // Postgres struct.
 type Postgres struct {
-	db     *sql.DB
-	rsMode bool
+	db                        *sql.DB
+	rsMode                    bool
+	logicalNameDelimiter      string
+	logicalNameFallbackToName bool
 }
 
 // New return new Postgres.
 func New(db *sql.DB) *Postgres {
 	return &Postgres{
-		db:     db,
-		rsMode: false,
+		db:                        db,
+		rsMode:                    false,
+		logicalNameDelimiter:      "|",
+		logicalNameFallbackToName: false,
 	}
+}
+
+// SetLogicalNameConfig sets the logical name configuration.
+func (p *Postgres) SetLogicalNameConfig(delimiter string, fallbackToName bool) {
+	p.logicalNameDelimiter = delimiter
+	p.logicalNameFallbackToName = fallbackToName
 }
 
 // Analyze PostgreSQL database schema.
@@ -278,9 +288,9 @@ ORDER BY tgrelid
 				Comment:  columnComment.String,
 			}
 
-			// 論理名をコメントから抽出（固定区切り文字"|"を使用）
+			// 論理名をコメントから抽出（設定値を使用）
 			if columnComment.Valid && columnComment.String != "" {
-				column.SetLogicalNameFromComment("|", false)
+				column.SetLogicalNameFromComment(p.logicalNameDelimiter, p.logicalNameFallbackToName)
 			}
 
 			switch attrgenerated.String {

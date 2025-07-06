@@ -30,6 +30,10 @@ type Mysql struct {
 
 	// Hide the entire AUTO_INCREMENT clause
 	hideAutoIncrement bool
+	
+	// Logical name configuration
+	logicalNameDelimiter      string
+	logicalNameFallbackToName bool
 }
 
 func ShowAutoIcrrement() drivers.Option {
@@ -55,7 +59,9 @@ func HideAutoIcrrement() drivers.Option {
 // New return new Mysql.
 func New(db *sql.DB, opts ...drivers.Option) (*Mysql, error) {
 	m := &Mysql{
-		db: db,
+		db:                        db,
+		logicalNameDelimiter:      "|",
+		logicalNameFallbackToName: false,
 	}
 	for _, opt := range opts {
 		err := opt(m)
@@ -64,6 +70,12 @@ func New(db *sql.DB, opts ...drivers.Option) (*Mysql, error) {
 		}
 	}
 	return m, nil
+}
+
+// SetLogicalNameConfig sets the logical name configuration.
+func (m *Mysql) SetLogicalNameConfig(delimiter string, fallbackToName bool) {
+	m.logicalNameDelimiter = delimiter
+	m.logicalNameFallbackToName = fallbackToName
 }
 
 // Analyze MySQL database schema.
@@ -265,9 +277,9 @@ WHERE table_schema = ? ORDER BY table_name, ordinal_position`
 			ExtraDef: extraDef,
 		}
 
-		// 論理名をコメントから抽出（固定区切り文字"|"を使用）
+		// 論理名をコメントから抽出（設定値を使用）
 		if columnComment.Valid && columnComment.String != "" {
-			column.SetLogicalNameFromComment("|", false)
+			column.SetLogicalNameFromComment(m.logicalNameDelimiter, m.logicalNameFallbackToName)
 		}
 
 		tableColumns[tableName] = append(tableColumns[tableName], column)
