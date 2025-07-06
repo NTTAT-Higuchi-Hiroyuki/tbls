@@ -6,7 +6,12 @@ services:
     volumes:
       - ..:/workspace:cached
     command: sleep infinity
+    user: "1000:1000"
     environment:
+      - GOCACHE=/workspace/.gocache
+      - GOMODCACHE=/workspace/.gomodcache
+      - GOPATH=/workspace/.go
+      - GO111MODULE=on
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=pgpass
       - POSTGRES_HOST=postgres
@@ -33,7 +38,7 @@ services:
 
   postgres95:
     image: postgres:9.5
-    platform: linux/amd64    
+    platform: linux/amd64
     restart: always
     ports:
       - "55432:5432"
