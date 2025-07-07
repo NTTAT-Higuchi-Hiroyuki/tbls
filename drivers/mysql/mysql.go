@@ -32,8 +32,10 @@ type Mysql struct {
 	hideAutoIncrement bool
 	
 	// Logical name configuration
-	logicalNameDelimiter      string
-	logicalNameFallbackToName bool
+	logicalNameDelimiter           string
+	logicalNameFallbackToName      bool
+	tableLogicalNameDelimiter      string
+	tableLogicalNameFallbackToName bool
 }
 
 func ShowAutoIcrrement() drivers.Option {
@@ -59,9 +61,11 @@ func HideAutoIcrrement() drivers.Option {
 // New return new Mysql.
 func New(db *sql.DB, opts ...drivers.Option) (*Mysql, error) {
 	m := &Mysql{
-		db:                        db,
-		logicalNameDelimiter:      "|",
-		logicalNameFallbackToName: false,
+		db:                             db,
+		logicalNameDelimiter:           "|",
+		logicalNameFallbackToName:      false,
+		tableLogicalNameDelimiter:      "|",
+		tableLogicalNameFallbackToName: false,
 	}
 	for _, opt := range opts {
 		err := opt(m)
@@ -76,6 +80,12 @@ func New(db *sql.DB, opts ...drivers.Option) (*Mysql, error) {
 func (m *Mysql) SetLogicalNameConfig(delimiter string, fallbackToName bool) {
 	m.logicalNameDelimiter = delimiter
 	m.logicalNameFallbackToName = fallbackToName
+}
+
+// SetTableLogicalNameConfig sets the table logical name configuration.
+func (m *Mysql) SetTableLogicalNameConfig(delimiter string, fallbackToName bool) {
+	m.tableLogicalNameDelimiter = delimiter
+	m.tableLogicalNameFallbackToName = fallbackToName
 }
 
 // Analyze MySQL database schema.
@@ -312,6 +322,11 @@ WHERE table_schema = ? ORDER BY table_name, ordinal_position`
 			Name:    tableName,
 			Type:    tableType,
 			Comment: tableComment,
+		}
+
+		// テーブル論理名をコメントから抽出（設定値を使用）
+		if tableComment != "" && m.tableLogicalNameDelimiter != "" {
+			table.SetLogicalNameFromComment(m.tableLogicalNameDelimiter, m.tableLogicalNameFallbackToName)
 		}
 
 		// table definition

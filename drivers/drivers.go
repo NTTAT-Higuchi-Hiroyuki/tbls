@@ -14,6 +14,7 @@ type Driver interface {
 type ConfigurableDriver interface {
 	Driver
 	SetLogicalNameConfig(delimiter string, fallbackToName bool)
+	SetTableLogicalNameConfig(delimiter string, fallbackToName bool)
 }
 
 // Option is the type for change Config.

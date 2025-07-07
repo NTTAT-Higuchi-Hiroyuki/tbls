@@ -19,19 +19,23 @@ var reVersion = regexp.MustCompile(`([0-9]+(\.[0-9]+)*)`)
 
 // Postgres struct.
 type Postgres struct {
-	db                        *sql.DB
-	rsMode                    bool
-	logicalNameDelimiter      string
-	logicalNameFallbackToName bool
+	db                             *sql.DB
+	rsMode                         bool
+	logicalNameDelimiter           string
+	logicalNameFallbackToName      bool
+	tableLogicalNameDelimiter      string
+	tableLogicalNameFallbackToName bool
 }
 
 // New return new Postgres.
 func New(db *sql.DB) *Postgres {
 	return &Postgres{
-		db:                        db,
-		rsMode:                    false,
-		logicalNameDelimiter:      "|",
-		logicalNameFallbackToName: false,
+		db:                             db,
+		rsMode:                         false,
+		logicalNameDelimiter:           "|",
+		logicalNameFallbackToName:      false,
+		tableLogicalNameDelimiter:      "|",
+		tableLogicalNameFallbackToName: false,
 	}
 }
 
@@ -39,6 +43,12 @@ func New(db *sql.DB) *Postgres {
 func (p *Postgres) SetLogicalNameConfig(delimiter string, fallbackToName bool) {
 	p.logicalNameDelimiter = delimiter
 	p.logicalNameFallbackToName = fallbackToName
+}
+
+// SetTableLogicalNameConfig sets the table logical name configuration.
+func (p *Postgres) SetTableLogicalNameConfig(delimiter string, fallbackToName bool) {
+	p.tableLogicalNameDelimiter = delimiter
+	p.tableLogicalNameFallbackToName = fallbackToName
 }
 
 // Analyze PostgreSQL database schema.
@@ -155,6 +165,11 @@ ORDER BY oid`)
 			Name:    name,
 			Type:    tableType,
 			Comment: tableComment.String,
+		}
+
+		// テーブル論理名をコメントから抽出（設定値を使用）
+		if tableComment.Valid && tableComment.String != "" && p.tableLogicalNameDelimiter != "" {
+			table.SetLogicalNameFromComment(p.tableLogicalNameDelimiter, p.tableLogicalNameFallbackToName)
 		}
 
 		// (materialized) view definition
