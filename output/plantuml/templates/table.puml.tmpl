@@ -15,9 +15,9 @@ skinparam class {
 
 ' tables
 {{- if ne .Table.Type "VIEW" }}
-table("{{ .Table.Name }}", "{{ .Table.Name }}{{ if $sc }}{{ if ne .Table.Comment "" }}\n{{ .Table.Comment | html | escape_nl }}{{ end }}{{ end }}") {
+table("{{ .Table.Name }}", "{{- if and .Table.LogicalName (ne .DisplayFormat "") }}{{ .Table.GetDisplayName .DisplayFormat }}{{- else }}{{ .Table.Name }}{{- end }}{{ if $sc }}{{ if ne .Table.Comment "" }}\n{{ .Table.Comment | html | escape_nl }}{{ end }}{{ end }}") {
 {{- else }}
-view("{{ .Table.Name }}", "{{ .Table.Name }}{{ if $sc }}{{ if ne .Table.Comment "" }}\n{{ .Table.Comment | html | escape_nl }}{{ end }}{{ end }}") {
+view("{{ .Table.Name }}", "{{- if and .Table.LogicalName (ne .DisplayFormat "") }}{{ .Table.GetDisplayName .DisplayFormat }}{{- else }}{{ .Table.Name }}{{- end }}{{ if $sc }}{{ if ne .Table.Comment "" }}\n{{ .Table.Comment | html | escape_nl }}{{ end }}{{ end }}") {
 {{- end }}
 {{- range $i, $c := .Table.Columns }}
   {{- if $c.HideForER }}{{ continue }}{{ end }}
@@ -26,9 +26,9 @@ view("{{ .Table.Name }}", "{{ .Table.Name }}{{ if $sc }}{{ if ne .Table.Comment 
 }
 {{- range $i, $t := .Tables }}
 {{- if ne $t.Type "VIEW" }}
-table("{{ $t.Name }}", "{{ $t.Name }}{{ if $sc }}{{ if ne $t.Comment "" }}\n{{ $t.Comment | html | escape_nl }}{{ end }}{{ end }}") {
+table("{{ $t.Name }}", "{{- if and $t.LogicalName (ne $.DisplayFormat "") }}{{ $t.GetDisplayName $.DisplayFormat }}{{- else }}{{ $t.Name }}{{- end }}{{ if $sc }}{{ if ne $t.Comment "" }}\n{{ $t.Comment | html | escape_nl }}{{ end }}{{ end }}") {
 {{- else }}
-view("{{ $t.Name }}", "{{ $t.Name }}{{ if $sc }}{{ if ne $t.Comment "" }}\n{{ $t.Comment | html | escape_nl }}{{ end }}{{ end }}") {
+view("{{ $t.Name }}", "{{- if and $t.LogicalName (ne $.DisplayFormat "") }}{{ $t.GetDisplayName $.DisplayFormat }}{{- else }}{{ $t.Name }}{{- end }}{{ if $sc }}{{ if ne $t.Comment "" }}\n{{ $t.Comment | html | escape_nl }}{{ end }}{{ end }}") {
 {{- end }}
 {{- range $ii, $c := $t.Columns }}
   {{- if $c.HideForER }}{{ continue }}{{ end }}

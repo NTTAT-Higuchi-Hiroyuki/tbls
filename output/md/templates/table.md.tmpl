@@ -1,4 +1,4 @@
-# {{ .Table.Name }}
+# {{ if and .Table.LogicalName (ne .DisplayFormat "") }}{{ .Table.GetDisplayName .DisplayFormat }}{{ else }}{{ .Table.Name }}{{ end }}
 
 ## {{ "Description" | lookup }}
 {{- if ne .Table.Comment "" }}
