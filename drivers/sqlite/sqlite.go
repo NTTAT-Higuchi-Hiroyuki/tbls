@@ -21,17 +21,21 @@ var shadowTables []string
 
 // Sqlite struct.
 type Sqlite struct {
-	db                        *sql.DB
-	logicalNameDelimiter      string
-	logicalNameFallbackToName bool
+	db                             *sql.DB
+	logicalNameDelimiter           string
+	logicalNameFallbackToName      bool
+	tableLogicalNameDelimiter      string
+	tableLogicalNameFallbackToName bool
 }
 
 // New return new Sqlite.
 func New(db *sql.DB) *Sqlite {
 	return &Sqlite{
-		db:                        db,
-		logicalNameDelimiter:      "|",
-		logicalNameFallbackToName: false,
+		db:                             db,
+		logicalNameDelimiter:           "|",
+		logicalNameFallbackToName:      false,
+		tableLogicalNameDelimiter:      "|",
+		tableLogicalNameFallbackToName: false,
 	}
 }
 
@@ -39,6 +43,12 @@ func New(db *sql.DB) *Sqlite {
 func (s *Sqlite) SetLogicalNameConfig(delimiter string, fallbackToName bool) {
 	s.logicalNameDelimiter = delimiter
 	s.logicalNameFallbackToName = fallbackToName
+}
+
+// SetTableLogicalNameConfig sets the table logical name configuration.
+func (s *Sqlite) SetTableLogicalNameConfig(delimiter string, fallbackToName bool) {
+	s.tableLogicalNameDelimiter = delimiter
+	s.tableLogicalNameFallbackToName = fallbackToName
 }
 
 type fk struct {
@@ -105,6 +115,11 @@ WHERE name != 'sqlite_sequence' AND (type = 'table' OR type = 'view');`)
 			Name: tableName,
 			Type: tableType,
 			Def:  tableDef,
+		}
+
+		// SQLiteではテーブルコメントがないため、フォールバック処理のみ実行
+		if l.tableLogicalNameFallbackToName {
+			table.LogicalName = tableName
 		}
 
 		// constraints

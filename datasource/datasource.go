@@ -159,9 +159,17 @@ func AnalyzeWithConfig(dsn config.DSN, cfg *config.Config) (_ *schema.Schema, er
 	}
 	
 	// Set logical name configuration if available
-	if cfg != nil && cfg.IsLogicalNameEnabled() {
+	if cfg != nil {
 		if configurableDriver, ok := driver.(drivers.ConfigurableDriver); ok {
-			configurableDriver.SetLogicalNameConfig(cfg.LogicalNameDelimiter(), cfg.LogicalNameFallbackToName())
+			// カラム論理名設定
+			if cfg.IsLogicalNameEnabled() {
+				configurableDriver.SetLogicalNameConfig(cfg.LogicalNameDelimiter(), cfg.LogicalNameFallbackToName())
+			}
+			
+			// テーブル論理名設定
+			if cfg.IsTableLogicalNameEnabled() {
+				configurableDriver.SetTableLogicalNameConfig(cfg.TableLogicalNameDelimiter(), cfg.TableLogicalNameFallbackToName())
+			}
 		}
 	}
 	

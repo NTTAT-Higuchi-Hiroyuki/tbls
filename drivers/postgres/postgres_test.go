@@ -99,3 +99,27 @@ func TestParseFK(t *testing.T) {
 		})
 	}
 }
+
+func TestTableLogicalNameConfig(t *testing.T) {
+	driver := New(db)
+	
+	// テーブル論理名設定のテスト
+	driver.SetTableLogicalNameConfig("|", true)
+	
+	if driver.tableLogicalNameDelimiter != "|" {
+		t.Errorf("got %v want %v", driver.tableLogicalNameDelimiter, "|")
+	}
+	if driver.tableLogicalNameFallbackToName != true {
+		t.Errorf("got %v want %v", driver.tableLogicalNameFallbackToName, true)
+	}
+	
+	// 設定変更のテスト
+	driver.SetTableLogicalNameConfig(";", false)
+	
+	if driver.tableLogicalNameDelimiter != ";" {
+		t.Errorf("got %v want %v", driver.tableLogicalNameDelimiter, ";")
+	}
+	if driver.tableLogicalNameFallbackToName != false {
+		t.Errorf("got %v want %v", driver.tableLogicalNameFallbackToName, false)
+	}
+}

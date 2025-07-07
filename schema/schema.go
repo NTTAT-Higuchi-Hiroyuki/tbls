@@ -171,7 +171,6 @@ type Table struct {
 	Name             string
 	Type             string
 	Comment          string
-	LogicalName      string
 	Columns          []*Column
 	Viewpoints       []*TableViewpoint
 	Indexes          []*Index
@@ -181,6 +180,7 @@ type Table struct {
 	Labels           Labels
 	ReferencedTables []*Table
 	External         bool
+	LogicalName      string `json:"logicalName,omitempty"`
 }
 
 // Relation is the struct for table relation.
