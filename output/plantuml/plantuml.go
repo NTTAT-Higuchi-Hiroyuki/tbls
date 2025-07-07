@@ -93,6 +93,7 @@ func (p *PlantUML) OutputTable(wr io.Writer, t *schema.Table) error {
 		"Table":           tables[0],
 		"Tables":          tables[1:],
 		"Relations":       relations,
+		"DisplayFormat":   p.config.TableLogicalNameDisplayFormat(),
 		"showComment":     p.config.ER.Comment,
 		"showDef":         !p.config.ER.HideDef,
 		"showColumnTypes": p.config.ER.ShowColumnTypes,

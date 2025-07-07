@@ -3,10 +3,10 @@ erDiagram
 {{ $sd := .showDef -}}
 {{- range $j, $r := .Relations }}
 {{- if $r.HideForER }}{{ continue }}{{ end }}
-"{{ $r.Table.Name }}" {{ $r.Cardinality | lcardi }}--{{ $r.ParentCardinality | rcardi }} "{{ $r.ParentTable.Name }}" : "{{ if $sd }}{{ $r.Def }}{{ end }}"
+"{{- if and $r.Table.LogicalName (ne $.DisplayFormat "") }}{{ $r.Table.GetDisplayName $.DisplayFormat }}{{- else }}{{ $r.Table.Name }}{{- end }}" {{ $r.Cardinality | lcardi }}--{{ $r.ParentCardinality | rcardi }} "{{- if and $r.ParentTable.LogicalName (ne $.DisplayFormat "") }}{{ $r.ParentTable.GetDisplayName $.DisplayFormat }}{{- else }}{{ $r.ParentTable.Name }}{{- end }}" : "{{ if $sd }}{{ $r.Def }}{{ end }}"
 {{- end }}
 
-"{{ .Table.Name }}" {
+"{{- if and .Table.LogicalName (ne .DisplayFormat "") }}{{ .Table.GetDisplayName .DisplayFormat }}{{- else }}{{ .Table.Name }}{{- end }}" {
 {{- range $i, $c := .Table.Columns }}
   {{- if $c.HideForER }}{{ continue }}{{ end }}
   {{ $c.Type | escape_mermaid }} {{ $c.Name }}{{ if $c.HasLogicalName }}_{{ $c.LogicalName | escape_double_quote }}{{ end }}{{ if $c.PK }} PK{{ end }}{{ if $c.FK }} FK{{ end }}{{ if $sc }} "{{ if ne $c.Comment "" }}{{ $c.Comment | escape_nl | escape_double_quote }}{{ end }}"{{ end }}
@@ -14,7 +14,7 @@ erDiagram
 }
 
 {{- range $i, $t := .Tables }}
-"{{ $t.Name }}" {
+"{{- if and $t.LogicalName (ne $.DisplayFormat "") }}{{ $t.GetDisplayName $.DisplayFormat }}{{- else }}{{ $t.Name }}{{- end }}" {
 {{- range $ii, $c := $t.Columns }}
   {{- if $c.HideForER }}{{ continue }}{{ end }}
   {{ $c.Type | escape_mermaid }} {{ $c.Name }}{{ if $c.HasLogicalName }}_{{ $c.LogicalName | escape_double_quote }}{{ end }}{{ if $c.PK }} PK{{ end }}{{ if $c.FK }} FK{{ end }}{{ if $sc }} "{{ if ne $c.Comment "" }}{{ $c.Comment | escape_nl | escape_double_quote }}{{ end }}"{{ end }}
