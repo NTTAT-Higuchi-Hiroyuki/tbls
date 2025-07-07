@@ -165,6 +165,13 @@ func AnalyzeWithConfig(dsn config.DSN, cfg *config.Config) (_ *schema.Schema, er
 		}
 	}
 	
+	// Set table logical name configuration if available
+	if cfg != nil && cfg.IsTableLogicalNameEnabled() {
+		if configurableDriver, ok := driver.(drivers.ConfigurableDriver); ok {
+			configurableDriver.SetTableLogicalNameConfig(cfg.TableLogicalNameDelimiter(), cfg.TableLogicalNameFallbackToName())
+		}
+	}
+	
 	err = driver.Analyze(s)
 	if err != nil {
 		return nil, err

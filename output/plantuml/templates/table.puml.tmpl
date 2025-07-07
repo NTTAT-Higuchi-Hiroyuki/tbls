@@ -14,10 +14,14 @@ skinparam class {
 }
 
 ' tables
+{{- $tableDisplayName := .Table.Name }}
+{{- if and .Table.LogicalName .displayFormat }}
+{{- $tableDisplayName = (.Table.GetDisplayName .displayFormat) }}
+{{- end }}
 {{- if ne .Table.Type "VIEW" }}
-table("{{ .Table.Name }}", "{{ .Table.Name }}{{ if $sc }}{{ if ne .Table.Comment "" }}\n{{ .Table.Comment | html | escape_nl }}{{ end }}{{ end }}") {
+table("{{ .Table.Name }}", "{{ $tableDisplayName }}{{ if $sc }}{{ if ne .Table.Comment "" }}\n{{ .Table.Comment | html | escape_nl }}{{ end }}{{ end }}") {
 {{- else }}
-view("{{ .Table.Name }}", "{{ .Table.Name }}{{ if $sc }}{{ if ne .Table.Comment "" }}\n{{ .Table.Comment | html | escape_nl }}{{ end }}{{ end }}") {
+view("{{ .Table.Name }}", "{{ $tableDisplayName }}{{ if $sc }}{{ if ne .Table.Comment "" }}\n{{ .Table.Comment | html | escape_nl }}{{ end }}{{ end }}") {
 {{- end }}
 {{- range $i, $c := .Table.Columns }}
   {{- if $c.HideForER }}{{ continue }}{{ end }}

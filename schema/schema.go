@@ -171,6 +171,7 @@ type Table struct {
 	Name             string
 	Type             string
 	Comment          string
+	LogicalName      string `json:"logicalName,omitempty" yaml:"logicalName,omitempty"`
 	Columns          []*Column
 	Viewpoints       []*TableViewpoint
 	Indexes          []*Index
@@ -662,6 +663,51 @@ func (t *Table) CollectTablesAndRelations(distance int, root bool) ([]*Table, []
 	}
 
 	return uTables, uRelations, nil
+}
+
+// SetLogicalNameFromComment コメントから論理名を抽出してLogicalNameフィールドに設定します
+func (t *Table) SetLogicalNameFromComment(delimiter string, fallbackToName bool) {
+	logicalName := ExtractLogicalName(t.Comment, delimiter, t.Name, fallbackToName)
+	t.LogicalName = logicalName
+	
+	// コメントから論理名部分を除去
+	t.Comment = ExtractCleanComment(t.Comment, delimiter)
+}
+
+// GetLogicalNameOrFallback 論理名を取得し、空の場合はフォールバック処理を行います
+func (t Table) GetLogicalNameOrFallback(fallbackToName bool) string {
+	if t.LogicalName != "" {
+		return t.LogicalName
+	}
+	
+	if fallbackToName {
+		return t.Name
+	}
+	
+	return ""
+}
+
+// HasLogicalName 論理名が設定されているかチェックします
+func (t Table) HasLogicalName() bool {
+	return t.LogicalName != ""
+}
+
+// GetDisplayName 設定された表示形式に応じてテーブルの表示名を返します
+func (t Table) GetDisplayName(displayFormat string) string {
+	switch displayFormat {
+	case "logical_physical":
+		if t.HasLogicalName() {
+			return fmt.Sprintf("%s（%s）", t.LogicalName, t.Name)
+		}
+		return t.Name
+	case "physical_logical":
+		if t.HasLogicalName() {
+			return fmt.Sprintf("%s（%s）", t.Name, t.LogicalName)
+		}
+		return t.Name
+	default:
+		return t.Name
+	}
 }
 
 func sameElements(a, b []string) bool {

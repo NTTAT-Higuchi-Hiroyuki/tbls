@@ -20,9 +20,11 @@ var reSystemNamed = regexp.MustCompile(`_[^_]+$`)
 
 // Mssql struct.
 type Mssql struct {
-	db                        *sql.DB
-	logicalNameDelimiter      string
-	logicalNameFallbackToName bool
+	db                             *sql.DB
+	logicalNameDelimiter           string
+	logicalNameFallbackToName      bool
+	tableLogicalNameDelimiter      string
+	tableLogicalNameFallbackToName bool
 }
 
 type relationLink struct {
@@ -35,9 +37,11 @@ type relationLink struct {
 // New ...
 func New(db *sql.DB) *Mssql {
 	return &Mssql{
-		db:                        db,
-		logicalNameDelimiter:      "|",
-		logicalNameFallbackToName: false,
+		db:                             db,
+		logicalNameDelimiter:           "|",
+		logicalNameFallbackToName:      false,
+		tableLogicalNameDelimiter:      "|",
+		tableLogicalNameFallbackToName: false,
 	}
 }
 
@@ -45,6 +49,12 @@ func New(db *sql.DB) *Mssql {
 func (m *Mssql) SetLogicalNameConfig(delimiter string, fallbackToName bool) {
 	m.logicalNameDelimiter = delimiter
 	m.logicalNameFallbackToName = fallbackToName
+}
+
+// SetTableLogicalNameConfig sets the table logical name configuration.
+func (m *Mssql) SetTableLogicalNameConfig(delimiter string, fallbackToName bool) {
+	m.tableLogicalNameDelimiter = delimiter
+	m.tableLogicalNameFallbackToName = fallbackToName
 }
 
 func (m *Mssql) Analyze(s *schema.Schema) error {
@@ -93,6 +103,11 @@ WHERE type IN ('U', 'V')  ORDER BY OBJECT_ID
 			Name:    name,
 			Type:    tableType,
 			Comment: tableComment.String,
+		}
+
+		// テーブル論理名をコメントから抽出（設定値を使用）
+		if tableComment.Valid && tableComment.String != "" && m.tableLogicalNameDelimiter != "" {
+			table.SetLogicalNameFromComment(m.tableLogicalNameDelimiter, m.tableLogicalNameFallbackToName)
 		}
 
 		// view definition

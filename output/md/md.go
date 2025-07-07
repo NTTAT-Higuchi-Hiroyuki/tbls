@@ -566,7 +566,12 @@ func (m *Md) makeTableTemplateData(t *schema.Table) map[string]interface{} {
 			if _, ok := cEncountered[r.Table.Name]; ok {
 				continue
 			}
-			childRelations = append(childRelations, fmt.Sprintf("[%s](%s%s.md)", r.Table.Name, m.config.BaseURL, mdurl.Encode(r.Table.Name)))
+			// 子テーブル表示名を決定（論理名設定に応じて）
+			childDisplayName := r.Table.Name
+			if m.config.IsTableLogicalNameEnabled() && r.Table.HasLogicalName() {
+				childDisplayName = r.Table.GetDisplayName(m.config.TableLogicalNameDisplayFormat())
+			}
+			childRelations = append(childRelations, fmt.Sprintf("[%s](%s%s.md)", childDisplayName, m.config.BaseURL, mdurl.Encode(r.Table.Name)))
 			cEncountered[r.Table.Name] = true
 		}
 		parentRelations := []string{}
@@ -575,7 +580,12 @@ func (m *Md) makeTableTemplateData(t *schema.Table) map[string]interface{} {
 			if _, ok := pEncountered[r.ParentTable.Name]; ok {
 				continue
 			}
-			parentRelations = append(parentRelations, fmt.Sprintf("[%s](%s%s.md)", r.ParentTable.Name, m.config.BaseURL, mdurl.Encode(r.ParentTable.Name)))
+			// 親テーブル表示名を決定（論理名設定に応じて）
+			parentDisplayName := r.ParentTable.Name
+			if m.config.IsTableLogicalNameEnabled() && r.ParentTable.HasLogicalName() {
+				parentDisplayName = r.ParentTable.GetDisplayName(m.config.TableLogicalNameDisplayFormat())
+			}
+			parentRelations = append(parentRelations, fmt.Sprintf("[%s](%s%s.md)", parentDisplayName, m.config.BaseURL, mdurl.Encode(r.ParentTable.Name)))
 			pEncountered[r.ParentTable.Name] = true
 		}
 
@@ -731,6 +741,7 @@ func (m *Md) makeTableTemplateData(t *schema.Table) map[string]interface{} {
 	if adjust {
 		return map[string]interface{}{
 			"Table":            t,
+			"DisplayFormat":    m.config.TableLogicalNameDisplayFormat(),
 			"Columns":          adjustTable(columnsData),
 			"Viewpoints":       adjustTable(viewpointsData),
 			"Constraints":      adjustTable(constraintsData),
@@ -742,6 +753,7 @@ func (m *Md) makeTableTemplateData(t *schema.Table) map[string]interface{} {
 
 	return map[string]interface{}{
 		"Table":            t,
+		"DisplayFormat":    m.config.TableLogicalNameDisplayFormat(),
 		"Columns":          columnsData,
 		"Viewpoints":       viewpointsData,
 		"Constraints":      constraintsData,
@@ -824,8 +836,15 @@ func (m *Md) tablesData(tables []*schema.Table, number, adjust, showOnlyFirstPar
 		if showOnlyFirstParagraph {
 			comment = output.ShowOnlyFirstParagraph(comment)
 		}
+		
+		// テーブル表示名を決定（論理名設定に応じて）
+		displayName := t.Name
+		if m.config.IsTableLogicalNameEnabled() && t.HasLogicalName() {
+			displayName = t.GetDisplayName(m.config.TableLogicalNameDisplayFormat())
+		}
+		
 		d := []string{
-			fmt.Sprintf("[%s](%s%s.md)", t.Name, m.config.BaseURL, mdurl.Encode(t.Name)),
+			fmt.Sprintf("[%s](%s%s.md)", displayName, m.config.BaseURL, mdurl.Encode(t.Name)),
 			fmt.Sprintf("%d", len(t.Columns)),
 			comment,
 			t.Type,

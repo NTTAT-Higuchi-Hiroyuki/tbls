@@ -70,11 +70,12 @@ func (d *Dot) OutputTable(wr io.Writer, t *schema.Table) error {
 	}
 	tmpl := template.Must(template.New(t.Name).Funcs(output.Funcs(&d.config.MergedDict)).Parse(ts))
 	if err := tmpl.Execute(wr, map[string]interface{}{
-		"Table":       tables[0],
-		"Tables":      tables[1:],
-		"Relations":   relations,
-		"showComment": d.config.ER.Comment,
-		"showDef":     !d.config.ER.HideDef,
+		"Table":         tables[0],
+		"Tables":        tables[1:],
+		"Relations":     relations,
+		"displayFormat": d.config.TableLogicalNameDisplayFormat(),
+		"showComment":   d.config.ER.Comment,
+		"showDef":       !d.config.ER.HideDef,
 	}); err != nil {
 		return errors.WithStack(err)
 	}

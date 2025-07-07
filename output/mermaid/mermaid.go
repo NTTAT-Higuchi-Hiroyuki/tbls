@@ -93,6 +93,7 @@ func (m *Mermaid) OutputTable(wr io.Writer, t *schema.Table) error {
 		"Table":           tables[0],
 		"Tables":          tables[1:],
 		"Relations":       relations,
+		"displayFormat":   m.config.TableLogicalNameDisplayFormat(),
 		"showComment":     m.config.ER.Comment,
 		"showDef":         !m.config.ER.HideDef,
 		"showColumnTypes": m.config.ER.ShowColumnTypes,
