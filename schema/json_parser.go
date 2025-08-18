@@ -59,8 +59,18 @@ func (p *JSONParser) CanParse(comment string) bool {
 		return false
 	}
 	
-	return (comment[0] == '{' && comment[len(comment)-1] == '}') ||
-		   (comment[0] == '[' && comment[len(comment)-1] == ']')
+	// JSON形式の基本的なチェック
+	hasValidBraces := (comment[0] == '{' && comment[len(comment)-1] == '}') ||
+		              (comment[0] == '[' && comment[len(comment)-1] == ']')
+	
+	if !hasValidBraces {
+		return false
+	}
+	
+	// 実際にJSONとして解析可能かチェック
+	var rawData interface{}
+	err := json.Unmarshal([]byte(comment), &rawData)
+	return err == nil
 }
 
 // ParseComment コメントを解析してCommentDataに変換
