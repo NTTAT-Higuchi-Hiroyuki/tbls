@@ -29,6 +29,11 @@ func (p *LegacyParser) Priority() int {
 	return p.priority
 }
 
+// SetPriority パーサーの優先度を設定
+func (p *LegacyParser) SetPriority(priority int) {
+	p.priority = priority
+}
+
 // CanParse このパーサーでコメントを解析可能かを判定
 // LegacyParserは全てのコメントを解析可能（フォールバック）
 func (p *LegacyParser) CanParse(comment string) bool {

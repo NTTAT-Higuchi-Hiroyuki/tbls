@@ -42,6 +42,11 @@ func (p *JSONParser) Priority() int {
 	return p.priority
 }
 
+// SetPriority パーサーの優先度を設定
+func (p *JSONParser) SetPriority(priority int) {
+	p.priority = priority
+}
+
 // CanParse このパーサーでコメントを解析可能かを判定
 func (p *JSONParser) CanParse(comment string) bool {
 	if comment == "" {

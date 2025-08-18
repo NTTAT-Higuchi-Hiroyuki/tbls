@@ -82,6 +82,132 @@ func NewEnhancedCommentProcessorWithConfig(config *ProcessingConfig) *EnhancedCo
 	return processor
 }
 
+// NewEnhancedCommentProcessorFromConfig config/config.goの設定からEnhancedCommentProcessorを作成
+func NewEnhancedCommentProcessorFromConfig(config EnhancedCommentConfigurator) *EnhancedCommentProcessor {
+	if !config.IsEnhancedCommentEnabled() {
+		// 拡張コメント処理が無効な場合はデフォルト設定で作成
+		return NewEnhancedCommentProcessor()
+	}
+
+	// 設定から処理設定を構築
+	processingConfig := &ProcessingConfig{
+		EnableValidation:   config.IsEnhancedCommentValidationEnabled(),
+		EnableSanitization: config.IsEnhancedCommentSanitizationEnabled(),
+		DefaultDelimiter:   config.LogicalNameDelimiter(), // 既存のlogical name delimiterを使用
+		FallbackToLegacy:   true, // 常にlegacyにフォールバック
+		StrictMode:         config.IsEnhancedCommentStrictMode(),
+		ProcessingTimeout:  config.EnhancedCommentProcessingTimeout(),
+	}
+
+	// プロセッサー作成
+	processor := &EnhancedCommentProcessor{
+		registry:  NewDefaultParserRegistry(),
+		validator: createValidatorFromConfig(config),
+		config:    processingConfig,
+	}
+
+	// 設定に基づいてパーサーを登録
+	processor.registerParsersFromConfig(config)
+
+	return processor
+}
+
+// EnhancedCommentConfigurator 設定インターフェース（config/config.goの依存を避けるため）
+type EnhancedCommentConfigurator interface {
+	IsEnhancedCommentEnabled() bool
+	IsEnhancedCommentJSONEnabled() bool
+	IsEnhancedCommentYAMLEnabled() bool
+	EnhancedCommentPreferredFormat() string
+	IsEnhancedCommentValidationEnabled() bool
+	IsEnhancedCommentSanitizationEnabled() bool
+	EnhancedCommentSecurityLevel() string
+	IsEnhancedCommentStrictMode() bool
+	EnhancedCommentProcessingTimeout() int
+	IsEnhancedCommentObjectTypeEnabled(objectType string) bool
+	LogicalNameDelimiter() string
+}
+
+// registerParsersFromConfig 設定に基づいてパーサーを登録
+func (p *EnhancedCommentProcessor) registerParsersFromConfig(config EnhancedCommentConfigurator) {
+	// 優先フォーマットに基づいてパーサーの登録順序を決定
+	preferredFormat := config.EnhancedCommentPreferredFormat()
+
+	switch preferredFormat {
+	case "json":
+		if config.IsEnhancedCommentJSONEnabled() {
+			// JSON優先の場合、JSONの優先度を最高に設定
+			jsonParser := NewJSONParser()
+			jsonParser.SetPriority(5) // 最高優先度
+			p.registry.RegisterParser(jsonParser)
+		}
+		if config.IsEnhancedCommentYAMLEnabled() {
+			yamlParser := NewYAMLParser()
+			yamlParser.SetPriority(15) // 通常優先度
+			p.registry.RegisterParser(yamlParser)
+		}
+	case "yaml":
+		if config.IsEnhancedCommentYAMLEnabled() {
+			// YAML優先の場合、YAMLの優先度を最高に設定
+			yamlParser := NewYAMLParser()
+			yamlParser.SetPriority(5) // 最高優先度
+			p.registry.RegisterParser(yamlParser)
+		}
+		if config.IsEnhancedCommentJSONEnabled() {
+			jsonParser := NewJSONParser()
+			jsonParser.SetPriority(10) // 通常優先度
+			p.registry.RegisterParser(jsonParser)
+		}
+	case "legacy":
+		// legacyパーサーのみ
+		legacyParser := NewLegacyParser()
+		legacyParser.SetPriority(5) // 最高優先度
+		p.registry.RegisterParser(legacyParser)
+		return
+	default: // "auto" または未知の値
+		// JSON -> YAML -> Legacyの順で登録（優先度順）
+		if config.IsEnhancedCommentJSONEnabled() {
+			jsonParser := NewJSONParser()
+			jsonParser.SetPriority(10) // 高優先度
+			p.registry.RegisterParser(jsonParser)
+		}
+		if config.IsEnhancedCommentYAMLEnabled() {
+			yamlParser := NewYAMLParser()
+			yamlParser.SetPriority(15) // 中優先度
+			p.registry.RegisterParser(yamlParser)
+		}
+	}
+
+	// 常にlegacyパーサーをフォールバックとして登録
+	legacyParser := NewLegacyParser()
+	legacyParser.SetPriority(20) // 最低優先度
+	p.registry.RegisterParser(legacyParser)
+}
+
+// createValidatorFromConfig 設定からバリデーターを作成
+func createValidatorFromConfig(config EnhancedCommentConfigurator) CommentValidator {
+	if !config.IsEnhancedCommentValidationEnabled() {
+		// バリデーション無効の場合はデフォルトバリデーターを使用
+		return NewDefaultCommentValidator()
+	}
+
+	// セキュリティレベルに基づいてバリデーション設定を決定
+	var validationConfig *ValidationConfig
+	switch config.EnhancedCommentSecurityLevel() {
+	case "strict":
+		validationConfig = StrictValidationConfig()
+	case "permissive":
+		validationConfig = PermissiveValidationConfig()
+	default: // "default"
+		validationConfig = DefaultValidationConfig()
+	}
+
+	// サニタイゼーション設定を反映
+	validationConfig.EnableHTMLEscape = config.IsEnhancedCommentSanitizationEnabled()
+	validationConfig.EnableSQLInjectionCheck = config.IsEnhancedCommentValidationEnabled()
+
+	return NewDefaultCommentValidatorWithConfig(validationConfig)
+}
+
 // registerDefaultParsers デフォルトパーサーを登録
 func (p *EnhancedCommentProcessor) registerDefaultParsers() {
 	// JSONParserを登録（高優先度）
