@@ -93,6 +93,8 @@ type Index struct {
 	Table   *string  `json:"table"`
 	Columns []string `json:"columns"`
 	Comment string   `json:"comment,omitempty"`
+	// 拡張コメントデータ
+	EnhancedCommentData *CommentData `json:"enhancedCommentData,omitempty"`
 }
 
 // Constraint is the struct for database constraint.
@@ -105,6 +107,8 @@ type Constraint struct {
 	Columns           []string `json:"columns,omitempty"`
 	ReferencedColumns []string `json:"referenced_columns,omitempty" yaml:"referencedColumns,omitempty"`
 	Comment           string   `json:"comment,omitempty"`
+	// 拡張コメントデータ
+	EnhancedCommentData *CommentData `json:"enhancedCommentData,omitempty"`
 }
 
 // Trigger is the struct for database trigger.
@@ -112,6 +116,8 @@ type Trigger struct {
 	Name    string `json:"name"`
 	Def     string `json:"def"`
 	Comment string `json:"comment,omitempty"`
+	// 拡張コメントデータ
+	EnhancedCommentData *CommentData `json:"enhancedCommentData,omitempty"`
 }
 
 // Column is the struct for table column.
@@ -131,6 +137,8 @@ type Column struct {
 	PK              bool
 	FK              bool
 	HideForER       bool
+	// EnhancedCommentData 拡張コメント処理結果
+	EnhancedCommentData *CommentData `json:"enhancedCommentData,omitempty" yaml:"enhancedCommentData,omitempty"`
 }
 
 // SetLogicalNameFromComment コメントから論理名を抽出してLogicalNameフィールドに設定します
@@ -140,6 +148,118 @@ func (c *Column) SetLogicalNameFromComment(delimiter string, fallbackToName bool
 	
 	// コメントから論理名部分を除去
 	c.Comment = ExtractCleanComment(c.Comment, delimiter)
+}
+
+// ProcessEnhancedComment 拡張コメント処理を実行してColumnを更新
+func (c *Column) ProcessEnhancedComment(processor CommentProcessor, delimiter string, fallbackToName bool) error {
+	if c.Comment == "" {
+		return nil
+	}
+
+	// 拡張コメント処理を実行
+	commentData, err := processor.ProcessCommentWithValidation(c.Comment, delimiter, ObjectTypeColumn)
+	if err != nil {
+		// エラーの場合は既存の処理にフォールバック
+		c.SetLogicalNameFromComment(delimiter, fallbackToName)
+		c.EnhancedCommentData = nil
+		return err
+	}
+
+	// 処理結果を保存
+	c.EnhancedCommentData = commentData
+
+	// LogicalNameを更新（優先順位: 拡張コメント > 既存処理 > 名前）
+	if commentData.LogicalName != "" {
+		c.LogicalName = commentData.LogicalName
+		
+		// レガシーパーサーで処理された場合のみコメントをクリーンアップ
+		// JSONやYAMLの場合は元のコメントを保持
+		if c.EnhancedCommentData != nil && c.EnhancedCommentData.Source != "" {
+			// パーサーの種類を判定して従来形式の場合のみクリーンアップ
+			parser := NewLegacyParser()
+			if parser.CanParse(c.Comment) && !IsValidJSON(c.Comment) && !IsValidYAML(c.Comment) {
+				c.Comment = ExtractCleanComment(c.Comment, delimiter)
+			}
+		}
+	} else {
+		// 拡張コメントに論理名がない場合は既存処理を使用
+		logicalName := ExtractLogicalName(c.Comment, delimiter, c.Name, fallbackToName)
+		c.LogicalName = logicalName
+		// 従来形式の場合のみコメントをクリーンアップ
+		c.Comment = ExtractCleanComment(c.Comment, delimiter)
+	}
+
+	return nil
+}
+
+// GetEnhancedCommentData 拡張コメントデータを取得
+func (c *Column) GetEnhancedCommentData() *CommentData {
+	return c.EnhancedCommentData
+}
+
+// HasEnhancedComment 拡張コメントデータが存在するかを確認
+func (c *Column) HasEnhancedComment() bool {
+	return c.EnhancedCommentData != nil
+}
+
+// GetDescription 説明を取得（拡張コメント優先）
+func (c *Column) GetDescription() string {
+	if c.EnhancedCommentData != nil && c.EnhancedCommentData.Description != "" {
+		return c.EnhancedCommentData.Description
+	}
+	return c.Comment
+}
+
+// GetTags タグ一覧を取得
+func (c *Column) GetTags() []string {
+	if c.EnhancedCommentData != nil {
+		return c.EnhancedCommentData.Tags
+	}
+	return nil
+}
+
+// GetMetadata メタデータを取得
+func (c *Column) GetMetadata() map[string]string {
+	if c.EnhancedCommentData != nil {
+		return c.EnhancedCommentData.Metadata
+	}
+	return nil
+}
+
+// IsDeprecated 非推奨フラグを取得
+func (c *Column) IsDeprecated() bool {
+	if c.EnhancedCommentData != nil {
+		return c.EnhancedCommentData.Deprecated
+	}
+	return false
+}
+
+// GetPriority 優先度を取得
+func (c *Column) GetPriority() int {
+	if c.EnhancedCommentData != nil {
+		return c.EnhancedCommentData.Priority
+	}
+	return 0
+}
+
+// GetEnhancedLogicalNameOrFallback 拡張コメント対応の論理名取得（フォールバック付き）
+func (c *Column) GetEnhancedLogicalNameOrFallback(fallbackToName bool) string {
+	// 拡張コメントから論理名を取得
+	if c.EnhancedCommentData != nil && c.EnhancedCommentData.LogicalName != "" {
+		return c.EnhancedCommentData.LogicalName
+	}
+	
+	// 既存のLogicalNameフィールドを確認
+	if c.LogicalName != "" {
+		return c.LogicalName
+	}
+	
+	// フォールバックが有効な場合はカラム名を返す
+	if fallbackToName {
+		return c.Name
+	}
+	
+	return ""
 }
 
 // GetLogicalNameOrFallback 論理名を取得し、空の場合はフォールバック処理を行います
@@ -181,6 +301,354 @@ type Table struct {
 	ReferencedTables []*Table
 	External         bool
 	LogicalName      string `json:"logicalName,omitempty"`
+	// 拡張コメントデータ
+	EnhancedCommentData *CommentData `json:"enhancedCommentData,omitempty"`
+}
+
+// ProcessEnhancedComment テーブルの拡張コメント処理
+func (t *Table) ProcessEnhancedComment(processor CommentProcessor, delimiter string, fallbackToName bool) error {
+	if t.Comment == "" {
+		return nil
+	}
+	
+	// 拡張コメント処理を実行
+	commentData, err := processor.ProcessCommentWithValidation(t.Comment, delimiter, ObjectTypeTable)
+	if err != nil {
+		// フォールバック: 従来処理
+		t.SetLogicalNameFromComment(delimiter, fallbackToName)
+		t.EnhancedCommentData = nil
+		return err
+	}
+	
+	// 処理結果を保存
+	t.EnhancedCommentData = commentData
+	
+	// LogicalNameを更新（優先順位: 拡張コメント > 既存処理 > 名前）
+	if commentData.LogicalName != "" {
+		t.LogicalName = commentData.LogicalName
+		
+		// レガシーパーサーで処理された場合のみコメントをクリーンアップ
+		// JSONやYAMLの場合は元のコメントを保持
+		if t.EnhancedCommentData != nil && t.EnhancedCommentData.Source != "" {
+			// パーサーの種類を判定して従来形式の場合のみクリーンアップ
+			parser := NewLegacyParser()
+			if parser.CanParse(t.Comment) && !IsValidJSON(t.Comment) && !IsValidYAML(t.Comment) {
+				t.Comment = ExtractCleanComment(t.Comment, delimiter)
+			}
+		}
+	} else {
+		// 拡張コメントに論理名がない場合は既存処理を使用
+		logicalName := ExtractLogicalName(t.Comment, delimiter, t.Name, fallbackToName)
+		t.LogicalName = logicalName
+		// 従来形式の場合のみコメントをクリーンアップ
+		t.Comment = ExtractCleanComment(t.Comment, delimiter)
+	}
+	
+	return nil
+}
+
+// GetEnhancedCommentData 拡張コメントデータを取得
+func (t *Table) GetEnhancedCommentData() *CommentData {
+	return t.EnhancedCommentData
+}
+
+// HasEnhancedComment 拡張コメントデータが存在するかを確認
+func (t *Table) HasEnhancedComment() bool {
+	return t.EnhancedCommentData != nil
+}
+
+// GetDescription 説明を取得（拡張コメント優先）
+func (t *Table) GetDescription() string {
+	if t.EnhancedCommentData != nil && t.EnhancedCommentData.Description != "" {
+		return t.EnhancedCommentData.Description
+	}
+	return t.Comment
+}
+
+// GetTags タグ一覧を取得
+func (t *Table) GetTags() []string {
+	if t.EnhancedCommentData != nil {
+		return t.EnhancedCommentData.Tags
+	}
+	return nil
+}
+
+// GetMetadata メタデータを取得
+func (t *Table) GetMetadata() map[string]string {
+	if t.EnhancedCommentData != nil {
+		return t.EnhancedCommentData.Metadata
+	}
+	return nil
+}
+
+// IsDeprecated 非推奨フラグを取得
+func (t *Table) IsDeprecated() bool {
+	if t.EnhancedCommentData != nil {
+		return t.EnhancedCommentData.Deprecated
+	}
+	return false
+}
+
+// GetPriority 優先度を取得
+func (t *Table) GetPriority() int {
+	if t.EnhancedCommentData != nil {
+		return t.EnhancedCommentData.Priority
+	}
+	return 0
+}
+
+// GetEnhancedLogicalNameOrFallback 拡張コメント対応の論理名取得（フォールバック付き）
+func (t *Table) GetEnhancedLogicalNameOrFallback(fallbackToName bool) string {
+	// 拡張コメントから論理名を取得
+	if t.EnhancedCommentData != nil && t.EnhancedCommentData.LogicalName != "" {
+		return t.EnhancedCommentData.LogicalName
+	}
+	
+	// 既存のLogicalNameフィールドを確認
+	if t.LogicalName != "" {
+		return t.LogicalName
+	}
+	
+	// フォールバックが有効な場合はテーブル名を返す
+	if fallbackToName {
+		return t.Name
+	}
+	
+	return ""
+}
+
+// ProcessEnhancedComment インデックスの拡張コメント処理
+func (i *Index) ProcessEnhancedComment(processor CommentProcessor, delimiter string) error {
+	if i.Comment == "" {
+		return nil
+	}
+	
+	// 拡張コメント処理を実行
+	commentData, err := processor.ProcessCommentWithValidation(i.Comment, delimiter, ObjectTypeIndex)
+	if err != nil {
+		// フォールバック処理なし（IndexにはLogicalNameフィールドがない）
+		i.EnhancedCommentData = nil
+		return err
+	}
+	
+	// 処理結果を保存
+	i.EnhancedCommentData = commentData
+	
+	// レガシーパーサーで処理された場合のみコメントをクリーンアップ
+	if i.EnhancedCommentData != nil && i.EnhancedCommentData.Source != "" {
+		parser := NewLegacyParser()
+		if parser.CanParse(i.Comment) && !IsValidJSON(i.Comment) && !IsValidYAML(i.Comment) {
+			i.Comment = ExtractCleanComment(i.Comment, delimiter)
+		}
+	}
+	
+	return nil
+}
+
+// GetEnhancedCommentData 拡張コメントデータを取得
+func (i *Index) GetEnhancedCommentData() *CommentData {
+	return i.EnhancedCommentData
+}
+
+// HasEnhancedComment 拡張コメントデータが存在するかを確認
+func (i *Index) HasEnhancedComment() bool {
+	return i.EnhancedCommentData != nil
+}
+
+// GetDescription 説明を取得（拡張コメント優先）
+func (i *Index) GetDescription() string {
+	if i.EnhancedCommentData != nil && i.EnhancedCommentData.Description != "" {
+		return i.EnhancedCommentData.Description
+	}
+	return i.Comment
+}
+
+// GetTags タグ一覧を取得
+func (i *Index) GetTags() []string {
+	if i.EnhancedCommentData != nil {
+		return i.EnhancedCommentData.Tags
+	}
+	return nil
+}
+
+// GetMetadata メタデータを取得
+func (i *Index) GetMetadata() map[string]string {
+	if i.EnhancedCommentData != nil {
+		return i.EnhancedCommentData.Metadata
+	}
+	return nil
+}
+
+// IsDeprecated 非推奨フラグを取得
+func (i *Index) IsDeprecated() bool {
+	if i.EnhancedCommentData != nil {
+		return i.EnhancedCommentData.Deprecated
+	}
+	return false
+}
+
+// GetPriority 優先度を取得
+func (i *Index) GetPriority() int {
+	if i.EnhancedCommentData != nil {
+		return i.EnhancedCommentData.Priority
+	}
+	return 0
+}
+
+// ProcessEnhancedComment 制約の拡張コメント処理
+func (c *Constraint) ProcessEnhancedComment(processor CommentProcessor, delimiter string) error {
+	if c.Comment == "" {
+		return nil
+	}
+	
+	// 拡張コメント処理を実行
+	commentData, err := processor.ProcessCommentWithValidation(c.Comment, delimiter, ObjectTypeConstraint)
+	if err != nil {
+		// フォールバック処理なし（ConstraintにはLogicalNameフィールドがない）
+		c.EnhancedCommentData = nil
+		return err
+	}
+	
+	// 処理結果を保存
+	c.EnhancedCommentData = commentData
+	
+	// レガシーパーサーで処理された場合のみコメントをクリーンアップ
+	if c.EnhancedCommentData != nil && c.EnhancedCommentData.Source != "" {
+		parser := NewLegacyParser()
+		if parser.CanParse(c.Comment) && !IsValidJSON(c.Comment) && !IsValidYAML(c.Comment) {
+			c.Comment = ExtractCleanComment(c.Comment, delimiter)
+		}
+	}
+	
+	return nil
+}
+
+// GetEnhancedCommentData 拡張コメントデータを取得
+func (c *Constraint) GetEnhancedCommentData() *CommentData {
+	return c.EnhancedCommentData
+}
+
+// HasEnhancedComment 拡張コメントデータが存在するかを確認
+func (c *Constraint) HasEnhancedComment() bool {
+	return c.EnhancedCommentData != nil
+}
+
+// GetDescription 説明を取得（拡張コメント優先）
+func (c *Constraint) GetDescription() string {
+	if c.EnhancedCommentData != nil && c.EnhancedCommentData.Description != "" {
+		return c.EnhancedCommentData.Description
+	}
+	return c.Comment
+}
+
+// GetTags タグ一覧を取得
+func (c *Constraint) GetTags() []string {
+	if c.EnhancedCommentData != nil {
+		return c.EnhancedCommentData.Tags
+	}
+	return nil
+}
+
+// GetMetadata メタデータを取得
+func (c *Constraint) GetMetadata() map[string]string {
+	if c.EnhancedCommentData != nil {
+		return c.EnhancedCommentData.Metadata
+	}
+	return nil
+}
+
+// IsDeprecated 非推奨フラグを取得
+func (c *Constraint) IsDeprecated() bool {
+	if c.EnhancedCommentData != nil {
+		return c.EnhancedCommentData.Deprecated
+	}
+	return false
+}
+
+// GetPriority 優先度を取得
+func (c *Constraint) GetPriority() int {
+	if c.EnhancedCommentData != nil {
+		return c.EnhancedCommentData.Priority
+	}
+	return 0
+}
+
+// ProcessEnhancedComment トリガーの拡張コメント処理
+func (t *Trigger) ProcessEnhancedComment(processor CommentProcessor, delimiter string) error {
+	if t.Comment == "" {
+		return nil
+	}
+	
+	// 拡張コメント処理を実行
+	commentData, err := processor.ProcessCommentWithValidation(t.Comment, delimiter, ObjectTypeTrigger)
+	if err != nil {
+		// フォールバック処理なし（TriggerにはLogicalNameフィールドがない）
+		t.EnhancedCommentData = nil
+		return err
+	}
+	
+	// 処理結果を保存
+	t.EnhancedCommentData = commentData
+	
+	// レガシーパーサーで処理された場合のみコメントをクリーンアップ
+	if t.EnhancedCommentData != nil && t.EnhancedCommentData.Source != "" {
+		parser := NewLegacyParser()
+		if parser.CanParse(t.Comment) && !IsValidJSON(t.Comment) && !IsValidYAML(t.Comment) {
+			t.Comment = ExtractCleanComment(t.Comment, delimiter)
+		}
+	}
+	
+	return nil
+}
+
+// GetEnhancedCommentData 拡張コメントデータを取得
+func (t *Trigger) GetEnhancedCommentData() *CommentData {
+	return t.EnhancedCommentData
+}
+
+// HasEnhancedComment 拡張コメントデータが存在するかを確認
+func (t *Trigger) HasEnhancedComment() bool {
+	return t.EnhancedCommentData != nil
+}
+
+// GetDescription 説明を取得（拡張コメント優先）
+func (t *Trigger) GetDescription() string {
+	if t.EnhancedCommentData != nil && t.EnhancedCommentData.Description != "" {
+		return t.EnhancedCommentData.Description
+	}
+	return t.Comment
+}
+
+// GetTags タグ一覧を取得
+func (t *Trigger) GetTags() []string {
+	if t.EnhancedCommentData != nil {
+		return t.EnhancedCommentData.Tags
+	}
+	return nil
+}
+
+// GetMetadata メタデータを取得
+func (t *Trigger) GetMetadata() map[string]string {
+	if t.EnhancedCommentData != nil {
+		return t.EnhancedCommentData.Metadata
+	}
+	return nil
+}
+
+// IsDeprecated 非推奨フラグを取得
+func (t *Trigger) IsDeprecated() bool {
+	if t.EnhancedCommentData != nil {
+		return t.EnhancedCommentData.Deprecated
+	}
+	return false
+}
+
+// GetPriority 優先度を取得
+func (t *Trigger) GetPriority() int {
+	if t.EnhancedCommentData != nil {
+		return t.EnhancedCommentData.Priority
+	}
+	return 0
 }
 
 // Relation is the struct for table relation.

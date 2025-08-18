@@ -213,6 +213,9 @@ func (p *EnhancedCommentProcessor) registerDefaultParsers() {
 	// JSONParserを登録（高優先度）
 	p.registry.RegisterParser(NewJSONParser())
 
+	// YAMLParserを登録（中優先度）
+	p.registry.RegisterParser(NewYAMLParser())
+
 	// LegacyParserを登録（低優先度、フォールバック用）
 	p.registry.RegisterParser(NewLegacyParser())
 }
