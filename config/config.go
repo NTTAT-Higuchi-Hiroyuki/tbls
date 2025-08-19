@@ -62,6 +62,8 @@ type Config struct {
 	BaseURL                string                 `yaml:"baseUrl,omitempty"`
 	RequiredVersion        string                 `yaml:"requiredVersion,omitempty"`
 	DisableOutputSchema    bool                   `yaml:"disableOutputSchema,omitempty"`
+	// EnhancedComment 拡張コメント処理設定
+	EnhancedComment        EnhancedCommentConfig  `yaml:"enhancedComment,omitempty"`
 	MergedDict             dict.Dict              `yaml:"-"`
 
 	// Table labels to be included
@@ -116,6 +118,68 @@ type LogicalName struct {
 type TableLogicalNameConfig struct {
 	Enabled       bool   `yaml:"enabled"`
 	DisplayFormat string `yaml:"displayFormat,omitempty"`
+}
+
+// EnhancedCommentConfig 拡張コメント処理の設定
+type EnhancedCommentConfig struct {
+	// Enabled 拡張コメント処理を有効にするか
+	Enabled bool `yaml:"enabled"`
+	// Parser パーサー設定
+	Parser EnhancedCommentParserConfig `yaml:"parser,omitempty"`
+	// Validation バリデーション設定
+	Validation EnhancedCommentValidationConfig `yaml:"validation,omitempty"`
+	// Processing 処理設定
+	Processing EnhancedCommentProcessingConfig `yaml:"processing,omitempty"`
+}
+
+// EnhancedCommentParserConfig パーサー設定
+type EnhancedCommentParserConfig struct {
+	// EnableJSON JSON形式のコメント解析を有効にするか
+	EnableJSON bool `yaml:"enableJSON"`
+	// EnableYAML YAML形式のコメント解析を有効にするか
+	EnableYAML bool `yaml:"enableYAML"`
+	// PreferredFormat 優先パーサー形式 ("auto", "json", "yaml", "legacy")
+	PreferredFormat string `yaml:"preferredFormat,omitempty"`
+	// FallbackToLegacy 他のパーサーが失敗した場合にlegacyパーサーにフォールバックするか
+	FallbackToLegacy bool `yaml:"fallbackToLegacy"`
+	// MaxDepth JSON/YAML構造の最大深度
+	MaxDepth int `yaml:"maxDepth,omitempty"`
+	// MaxSize コメント文字列の最大サイズ（バイト）
+	MaxSize int `yaml:"maxSize,omitempty"`
+}
+
+// EnhancedCommentValidationConfig バリデーション設定
+type EnhancedCommentValidationConfig struct {
+	// Enabled バリデーションを有効にするか
+	Enabled bool `yaml:"enabled"`
+	// EnableSanitization サニタイゼーションを有効にするか
+	EnableSanitization bool `yaml:"enableSanitization"`
+	// SecurityLevel セキュリティレベル ("strict", "default", "permissive")
+	SecurityLevel string `yaml:"securityLevel,omitempty"`
+	// MaxLogicalNameLength 論理名の最大長
+	MaxLogicalNameLength int `yaml:"maxLogicalNameLength,omitempty"`
+	// MaxDescriptionLength 説明の最大長
+	MaxDescriptionLength int `yaml:"maxDescriptionLength,omitempty"`
+	// MaxTagCount タグの最大数
+	MaxTagCount int `yaml:"maxTagCount,omitempty"`
+	// EnableHTMLEscape HTMLエスケープを有効にするか
+	EnableHTMLEscape bool `yaml:"enableHTMLEscape"`
+	// EnableSQLInjectionCheck SQLインジェクションチェックを有効にするか
+	EnableSQLInjectionCheck bool `yaml:"enableSQLInjectionCheck"`
+	// ForbiddenWords 禁止語句リスト
+	ForbiddenWords []string `yaml:"forbiddenWords,omitempty"`
+}
+
+// EnhancedCommentProcessingConfig 処理設定
+type EnhancedCommentProcessingConfig struct {
+	// StrictMode 厳格モード（エラー時に失敗）
+	StrictMode bool `yaml:"strictMode"`
+	// ProcessingTimeout 処理タイムアウト（ミリ秒）
+	ProcessingTimeout int `yaml:"processingTimeout,omitempty"`
+	// EnableBatchProcessing バッチ処理を有効にするか
+	EnableBatchProcessing bool `yaml:"enableBatchProcessing"`
+	// ObjectTypes 処理対象のオブジェクトタイプ
+	ObjectTypes []string `yaml:"objectTypes,omitempty"`
 }
 
 // AdditionalRelation is the struct for table relation from yaml.
@@ -315,7 +379,117 @@ func (c *Config) setDefault() error {
 		c.Format.LogicalName.Delimiter = DefaultLogicalNameDelimiter
 	}
 
+	// 拡張コメント処理のデフォルト設定
+	c.setEnhancedCommentDefaults()
+
 	return nil
+}
+
+// setEnhancedCommentDefaults 拡張コメント処理のデフォルト設定
+func (c *Config) setEnhancedCommentDefaults() {
+	// パーサー設定のデフォルト
+	if c.EnhancedComment.Parser.PreferredFormat == "" {
+		c.EnhancedComment.Parser.PreferredFormat = "auto"
+	}
+	if c.EnhancedComment.Parser.MaxDepth == 0 {
+		c.EnhancedComment.Parser.MaxDepth = 5
+	}
+	if c.EnhancedComment.Parser.MaxSize == 0 {
+		c.EnhancedComment.Parser.MaxSize = 8192
+	}
+
+	// バリデーション設定のデフォルト
+	if c.EnhancedComment.Validation.SecurityLevel == "" {
+		c.EnhancedComment.Validation.SecurityLevel = "default"
+	}
+	if c.EnhancedComment.Validation.MaxLogicalNameLength == 0 {
+		c.EnhancedComment.Validation.MaxLogicalNameLength = 100
+	}
+	if c.EnhancedComment.Validation.MaxDescriptionLength == 0 {
+		c.EnhancedComment.Validation.MaxDescriptionLength = 1000
+	}
+	if c.EnhancedComment.Validation.MaxTagCount == 0 {
+		c.EnhancedComment.Validation.MaxTagCount = 20
+	}
+
+	// 処理設定のデフォルト
+	if c.EnhancedComment.Processing.ProcessingTimeout == 0 {
+		c.EnhancedComment.Processing.ProcessingTimeout = 1000 // 1秒
+	}
+	if len(c.EnhancedComment.Processing.ObjectTypes) == 0 {
+		// デフォルトで全オブジェクトタイプを処理対象とする
+		c.EnhancedComment.Processing.ObjectTypes = []string{"table", "column", "index", "view", "constraint"}
+	}
+}
+
+// IsEnhancedCommentEnabled 拡張コメント処理が有効かどうかを返す
+func (c *Config) IsEnhancedCommentEnabled() bool {
+	return c.EnhancedComment.Enabled
+}
+
+// IsEnhancedCommentJSONEnabled JSON形式のコメント解析が有効かどうかを返す
+func (c *Config) IsEnhancedCommentJSONEnabled() bool {
+	return c.EnhancedComment.Enabled && c.EnhancedComment.Parser.EnableJSON
+}
+
+// IsEnhancedCommentYAMLEnabled YAML形式のコメント解析が有効かどうかを返す
+func (c *Config) IsEnhancedCommentYAMLEnabled() bool {
+	return c.EnhancedComment.Enabled && c.EnhancedComment.Parser.EnableYAML
+}
+
+// EnhancedCommentPreferredFormat 優先パーサー形式を返す
+func (c *Config) EnhancedCommentPreferredFormat() string {
+	if c.EnhancedComment.Parser.PreferredFormat != "" {
+		return c.EnhancedComment.Parser.PreferredFormat
+	}
+	return "auto"
+}
+
+// IsEnhancedCommentValidationEnabled バリデーションが有効かどうかを返す
+func (c *Config) IsEnhancedCommentValidationEnabled() bool {
+	return c.EnhancedComment.Enabled && c.EnhancedComment.Validation.Enabled
+}
+
+// IsEnhancedCommentSanitizationEnabled サニタイゼーションが有効かどうかを返す
+func (c *Config) IsEnhancedCommentSanitizationEnabled() bool {
+	return c.EnhancedComment.Enabled && c.EnhancedComment.Validation.EnableSanitization
+}
+
+// EnhancedCommentSecurityLevel セキュリティレベルを返す
+func (c *Config) EnhancedCommentSecurityLevel() string {
+	if c.EnhancedComment.Validation.SecurityLevel != "" {
+		return c.EnhancedComment.Validation.SecurityLevel
+	}
+	return "default"
+}
+
+// IsEnhancedCommentStrictMode 厳格モードが有効かどうかを返す
+func (c *Config) IsEnhancedCommentStrictMode() bool {
+	return c.EnhancedComment.Enabled && c.EnhancedComment.Processing.StrictMode
+}
+
+// EnhancedCommentProcessingTimeout 処理タイムアウトを返す（ミリ秒）
+func (c *Config) EnhancedCommentProcessingTimeout() int {
+	if c.EnhancedComment.Processing.ProcessingTimeout > 0 {
+		return c.EnhancedComment.Processing.ProcessingTimeout
+	}
+	return 1000
+}
+
+// IsEnhancedCommentObjectTypeEnabled 指定されたオブジェクトタイプが処理対象かどうかを返す
+func (c *Config) IsEnhancedCommentObjectTypeEnabled(objectType string) bool {
+	if !c.EnhancedComment.Enabled {
+		return false
+	}
+	if len(c.EnhancedComment.Processing.ObjectTypes) == 0 {
+		return true // 設定されていない場合はすべて有効
+	}
+	for _, ot := range c.EnhancedComment.Processing.ObjectTypes {
+		if ot == objectType {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Config) checkVersion(sv string) error {
