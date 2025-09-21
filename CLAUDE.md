@@ -8,6 +8,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 tblsは、CI-Friendlyなデータベースドキュメント生成ツールです。単一バイナリで動作し、多数のデータベースをサポートしています。
 
+### 主要機能
+- 自動データベースドキュメント生成（GitHub Flavored Markdownを含む複数フォーマット）
+- 外部ドライバーサポート（`tbls-driver-{scheme}`形式）
+- 外部サブコマンドサポート（PATH上の`tbls-*`実行可能ファイル）
+- 関数フィルタリング機能
+- データベースリンター機能
+- ER図生成（SVG、PNG、MD形式）
+
 ## 開発コマンド
 
 ### ビルドとテスト
@@ -78,9 +86,10 @@ make testdoc
 - JSONとYAMLでのシリアライズ/デシリアライズ対応
 
 ### 設定管理（config/）
-- `.tbls.yml`ファイルでの設定
+- `.tbls.yml`ファイルでの設定（`.yaml`拡張子もサポート、v1.83.0追加）
 - 環境変数の展開サポート（`${}`構文）
 - DSN、フィルタ、Lint規則等の設定
+- テーブル・関数フィルタリング機能（include/exclude、ワイルドカード、ラベル対応）
 
 ## 重要な実装パターン
 
@@ -100,6 +109,13 @@ make testdoc
 - PATH上の`tbls-*`実行可能ファイルを外部サブコマンドとして認識
 - 標準入出力を通じた通信
 
+### 外部ドライバー機能（v1.81.0追加）
+- 独自データベースエンジンのサポートが可能
+- `tbls-driver-{scheme}`形式の実行可能ファイルをPATH上に配置
+- DSNスキームに基づいて適切なドライバーを自動選択
+- 環境変数`TBLS_DSN`でDSN情報を外部ドライバーに渡す
+- JSON形式でスキーマ情報を標準出力に返却
+
 ## デバッグとトラブルシューティング
 
 ### 詳細ログの表示
@@ -108,10 +124,19 @@ make testdoc
 tbls doc --debug postgres://...
 ```
 
-### 特定のテーブルのみ処理
+### 特定のテーブル・関数のみ処理
 ```bash
 # --table/-tオプションでテーブルを指定
 tbls doc postgres://... -t users -t posts
+
+# 設定ファイルでのフィルタリング（テーブル・関数両対応）
+# .tbls.yml
+include:
+  - "user*"        # ワイルドカード使用
+  - "public.func*" # 関数名でのフィルタリング
+exclude:
+  - "*_temp"
+  - "test_*"
 ```
 
 ### 設定ファイルの検証
@@ -127,3 +152,25 @@ tbls doc --config custom.yml postgres://...
 - 出力フォーマット固有の処理は出力層に実装
 - 環境変数の展開は`${VAR_NAME}`形式を使用
 - Lint機能追加時は`config/lint.go`を更新
+- フィルタリング機能修正時は`schema/filter.go`と`schema/filter_test.go`を更新
+- 外部ドライバー開発時は`datasource/datasource.go`の`AnalyzeWithExtDriver`を参考に
+- 外部サブコマンド開発時は`cmd/root.go`の`getExtSubCmds`を参考に
+
+## サポートデータベース
+
+### 標準サポート
+
+- PostgreSQL (および Redshift)
+- MySQL (および MariaDB)
+- SQLite
+- SQL Server
+- BigQuery
+- Snowflake
+- ClickHouse
+- Spanner
+- DynamoDB
+- MongoDB
+
+### 外部ドライバー対応
+
+- 任意のデータベースエンジン（`tbls-driver-{scheme}`実装により追加可能）
