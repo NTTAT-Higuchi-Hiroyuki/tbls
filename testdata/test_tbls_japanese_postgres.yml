@@ -1,0 +1,78 @@
+---
+# PostgreSQL用日本語対応サンプル設定
+desc: PostgreSQL日本語対応データベースドキュメント（論理名機能付き）
+labels:
+  - sample
+  - tbls
+  - japanese
+  - logical-name
+  - postgres
+
+# 日本語辞書設定
+dict:
+  Tables: テーブル一覧
+  Description: 概要
+  Columns: カラム一覧
+  Indexes: インデックス一覧
+  Constraints: 制約一覧
+  Triggers: トリガー一覧
+  Relations: ER図
+  Name: 名前
+  Comment: コメント
+  Type: データ型
+  Default: デフォルト値
+  Nullable: NULL許可
+  Children: 子テーブル
+  Parents: 親テーブル
+  Definition: 定義
+  Table Definition: テーブル定義
+  Column: カラム
+  Index: インデックス
+  Constraint: 制約
+  Trigger: トリガー
+  Relation: リレーション
+  Schema: スキーマ
+  View: ビュー
+  Materialized View: マテリアライズドビュー
+  Function: 関数
+  Procedure: プロシージャ
+  Primary Key: 主キー
+  Foreign Key: 外部キー
+  Unique: 一意制約
+  Check: チェック制約
+  Required: 必須
+  Optional: 任意
+  Database: データベース
+  Owner: 所有者
+  Size: サイズ
+  Created: 作成日時
+  Updated: 更新日時
+  User: ユーザー
+  Access: アクセス権限
+  Properties: プロパティ
+  Labels: ラベル
+  Logical Name: 論理名
+
+# フォーマット設定
+format:
+  adjust: true
+  sort: true
+  logicalName:
+    enabled: true
+    delimiter: "|"
+    fallbackToName: true
+
+# PostgreSQLではDDLファイルに既にコメントが設定されているため、
+# 追加のコメント設定は最小限にする
+# 論理名が設定されていないテーブルへの追加コメント設定
+comments:
+  -
+    table: post_comment_stars
+    tableComment: "投稿コメントスター|投稿コメントに対するスターのマテリアライズドビュー"
+  -
+    table: user_access_logs  
+    tableComment: "ユーザーアクセスログ|ユーザーのアクセス履歴を記録"
+    columnComments:
+      user_id: "ユーザーID|アクセスしたユーザーのID"
+      ua: "ユーザーエージェント|ブラウザ情報"
+      created: "アクセス日時|ユーザーがアクセスした日時"

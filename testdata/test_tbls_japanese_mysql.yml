@@ -1,0 +1,184 @@
+---
+# MySQL用日本語対応サンプル設定
+desc: MySQL日本語対応データベースドキュメント（論理名機能付き）
+labels:
+  - sample
+  - tbls
+  - japanese
+  - logical-name
+  - mysql
+
+# 日本語辞書設定
+dict:
+  Tables: テーブル一覧
+  Description: 概要
+  Columns: カラム一覧
+  Indexes: インデックス一覧
+  Constraints: 制約一覧
+  Triggers: トリガー一覧
+  Relations: ER図
+  Name: 名前
+  Comment: コメント
+  Type: データ型
+  Default: デフォルト値
+  Nullable: NULL許可
+  Children: 子テーブル
+  Parents: 親テーブル
+  Definition: 定義
+  Table Definition: テーブル定義
+  Column: カラム
+  Index: インデックス
+  Constraint: 制約
+  Trigger: トリガー
+  Relation: リレーション
+  Schema: スキーマ
+  View: ビュー
+  Materialized View: マテリアライズドビュー
+  Function: 関数
+  Procedure: プロシージャ
+  Primary Key: 主キー
+  Foreign Key: 外部キー
+  Unique: 一意制約
+  Check: チェック制約
+  Required: 必須
+  Optional: 任意
+  Database: データベース
+  Owner: 所有者
+  Size: サイズ
+  Created: 作成日時
+  Updated: 更新日時
+  User: ユーザー
+  Access: アクセス権限
+  Properties: プロパティ
+  Labels: ラベル
+  Logical Name: 論理名
+
+# フォーマット設定
+format:
+  adjust: true
+  sort: true
+  logicalName:
+    enabled: true
+    delimiter: "|"
+    fallbackToName: true
+
+# リレーション定義
+relations:
+  -
+    table: logs
+    columns:
+      - user_id
+    parentTable: users
+    parentColumns:
+      - id
+    def: logs->users
+  -
+    table: logs
+    columns:
+      - post_id
+    parentTable: posts
+    parentColumns:
+      - id
+  -
+    table: logs
+    columns:
+      - comment_id
+    parentTable: comments
+    parentColumns:
+      - id
+  -
+    table: logs
+    columns:
+      - comment_star_id
+    parentTable: comment_stars
+    parentColumns:
+      - id
+    cardinality: exactly one
+    parentCardinality: exactly one
+
+# MySQL用コメント設定（論理名付き）
+comments:
+  -
+    table: users
+    tableComment: "ユーザー情報|システムのユーザー情報を管理するテーブル"
+    columnComments:
+      id: "ユーザーID|ユーザーを一意に識別するID"
+      username: "ユーザー名|ログイン時に使用する一意のユーザー名"
+      password: "パスワード|ハッシュ化されたパスワード"
+      email: "メールアドレス|ログイン用メールアドレス（例：user@example.com）"
+      created: "作成日時|レコードの作成日時"
+      updated: "更新日時|レコードの最終更新日時"
+  -
+    table: user_options
+    tableComment: "ユーザー設定|ユーザーの個別設定情報"
+    columnComments:
+      user_id: "ユーザーID|設定の対象ユーザー"
+      show_email: "メール表示設定|メールアドレスの公開可否"
+      created: "作成日時|設定の作成日時"
+      updated: "更新日時|設定の最終更新日時"
+  -
+    table: posts
+    tableComment: "投稿|ユーザーの投稿内容を管理"
+    columnComments:
+      id: "投稿ID|投稿を一意に識別するID"
+      user_id: "投稿者ID|投稿したユーザーのID"
+      title: "投稿タイトル|投稿のタイトル（デフォルト：Untitled）"
+      body: "投稿本文|投稿の本文内容"
+      post_type: "投稿タイプ|公開状態（public/private/draft）"
+      created: "投稿日時|投稿の作成日時"
+      updated: "更新日時|投稿の最終更新日時"
+  -
+    table: comments
+    tableComment: "コメント|投稿に対するコメントを管理"
+    columnComments:
+      id: "コメントID|コメントを一意に識別するID"
+      post_id: "投稿ID|コメント対象の投稿ID"
+      user_id: "コメント者ID|コメントしたユーザーのID"
+      comment: "コメント内容|コメントの本文（複数行対応）"
+      created: "コメント日時|コメントの作成日時"
+      updated: "更新日時|コメントの最終更新日時"
+  -
+    table: comment_stars
+    tableComment: "コメントスター|コメントに対するスター（いいね）"
+    columnComments:
+      id: "スターID|スターを一意に識別するID"
+      user_id: "ユーザーID|スターを付けたユーザーのID"
+      comment_post_id: "コメント投稿ID|スターを付けたコメントの投稿ID"
+      comment_user_id: "コメントユーザーID|スターを付けたコメントのユーザーID"
+      created: "スター日時|スターを付けた日時"
+      updated: "更新日時|スターの最終更新日時"
+  -
+    table: logs
+    tableComment: "ログ|システムの操作ログ"
+    columnComments:
+      id: "ログID|ログを一意に識別するID"
+      user_id: "ユーザーID|操作を行ったユーザーのID"
+      post_id: "投稿ID|操作対象の投稿ID"
+      comment_id: "コメントID|操作対象のコメントID"
+      comment_star_id: "スターID|操作対象のスターID"
+      payload: "ペイロード|操作の詳細データ"
+      created: "ログ日時|ログの記録日時"
+  -
+    table: post_comments
+    tableComment: "投稿コメントビュー|投稿とコメントの結合ビュー"
+    columnComments:
+      id: "コメントID|comments.id"
+      title: "投稿タイトル|posts.title"
+      post_user: "投稿者|posts.users.username"
+      comment: "コメント内容|コメントの本文"
+      comment_user: "コメント者|comments.users.username"
+      created: "作成日時|comments.created"
+      updated: "更新日時|comments.updated"
+  -
+    table: CamelizeTable
+    tableComment: "キャメルケーステーブル|テーブル名の大文字小文字テスト用"
+    columnComments:
+      id: "ID|主キー"
+      created: "作成日時|レコードの作成日時"
+  -
+    table: hyphen-table
+    tableComment: "ハイフンテーブル|ハイフン付きテーブル名のテスト用"
+    columnComments:
+      id: "ID|主キー"
+      hyphen-column: "ハイフンカラム|ハイフン付きカラム名"
+      created: "作成日時|レコードの作成日時"

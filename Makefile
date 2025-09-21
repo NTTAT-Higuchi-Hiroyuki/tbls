@@ -68,6 +68,15 @@ doc: build doc_sqlite
 doc_sqlite: build
 	$(TBLS) doc sq://$(PWD)/testdata/testdb.sqlite3 -c testdata/test_tbls.yml -f sample/sqlite
 
+doc_japanese: build
+	$(TBLS) doc sq://$(PWD)/testdata/testdb.sqlite3 -c testdata/test_tbls_japanese.yml -f sample/japanese
+
+doc_japanese_postgres: build
+	$(TBLS) doc pg://postgres:pgpass@localhost:55413/testdb?sslmode=disable -c testdata/test_tbls_japanese_postgres.yml -f sample/japanese_postgres
+
+doc_japanese_mysql: build
+	$(TBLS) doc my://root:mypass@localhost:33308/testdb -c testdata/test_tbls_japanese_mysql.yml -f sample/japanese_mysql
+
 testdoc: build testdoc_sqlite
 	$(TBLS) diff pg://postgres:pgpass@localhost:55432/testdb?sslmode=disable -c testdata/test_tbls_postgres.yml sample/postgres95
 	$(TBLS) diff pg://postgres:pgpass@localhost:55413/testdb?sslmode=disable -c testdata/test_tbls_postgres.yml sample/postgres
@@ -92,6 +101,15 @@ testdoc: build testdoc_sqlite
 
 testdoc_sqlite: build
 	$(TBLS) diff sq://$(PWD)/testdata/testdb.sqlite3 -c testdata/test_tbls.yml sample/sqlite
+
+testdoc_japanese: build
+	$(TBLS) diff sq://$(PWD)/testdata/testdb.sqlite3 -c testdata/test_tbls_japanese.yml sample/japanese
+
+testdoc_japanese_postgres: build
+	$(TBLS) diff pg://postgres:pgpass@localhost:55413/testdb?sslmode=disable -c testdata/test_tbls_japanese_postgres.yml sample/japanese_postgres
+
+testdoc_japanese_mysql: build
+	$(TBLS) diff my://root:mypass@localhost:33308/testdb -c testdata/test_tbls_japanese_mysql.yml sample/japanese_mysql
 
 testdoc_hide_auto_increment: build
 	usql my://root:mypass@localhost:33308/testdb -c "CREATE DATABASE IF NOT EXISTS auto_increment;"
