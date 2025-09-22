@@ -25,23 +25,23 @@
 
 #### Task 1.2: コメント設定構造体の実装
 
-- [ ] config/comment.go ファイル作成
-- [ ] CommentConfig 構造体の定義
-- [ ] config/config.go への CommentConfig フィールド追加
-- [ ] デフォルト値設定メソッドの実装
-- [ ] 基本的な単体テスト作成
+- [x] config/comment.go ファイル作成
+- [x] CommentConfig 構造体の定義
+- [x] config/config.go への CommentConfig フィールド追加
+- [x] デフォルト値設定メソッドの実装
+- [x] 基本的な単体テスト作成
 - **完了条件**: CommentConfig の基本機能が動作し、テストがパス
 - **依存**: Task 1.1
 - **推定時間**: 2時間
 
 #### Task 1.3: コメント解析ロジックの実装
 
-- [ ] schema/comment.go ファイル作成
-- [ ] CommentParser インターフェースの定義
-- [ ] DefaultCommentParser 構造体の実装
-- [ ] ParseComment, ExtractLogicalName, ExtractCleanComment メソッド実装
-- [ ] UTF-8安全な文字列処理の実装
-- [ ] エラーハンドリングの実装
+- [x] schema/comment.go ファイル作成
+- [x] CommentParser インターフェースの定義
+- [x] DefaultCommentParser 構造体の実装
+- [x] ParseComment, ExtractLogicalName, ExtractCleanComment メソッド実装
+- [x] UTF-8安全な文字列処理の実装
+- [x] エラーハンドリングの実装
 - **完了条件**: 全てのコメント解析メソッドが正常動作し、テストがパス
 - **依存**: Task 1.2
 - **推定時間**: 3時間

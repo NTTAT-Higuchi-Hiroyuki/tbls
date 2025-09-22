@@ -34,6 +34,7 @@ require (
 	github.com/samber/lo v1.50.0
 	github.com/snowflakedb/gosnowflake v1.14.0
 	github.com/spf13/cobra v1.9.1
+	github.com/stretchr/testify v1.10.0
 	github.com/tenntenn/golden v0.5.4
 	github.com/xo/dburl v0.23.7
 	gitlab.com/golang-commonmark/mdurl v0.0.0-20191124015652-932350d1cb84
@@ -84,6 +85,7 @@ require (
 	github.com/cli/go-gh/v2 v2.12.1 // indirect
 	github.com/cncf/xds/go v0.0.0-20250121191232-2f005788dc42 // indirect
 	github.com/danieljoos/wincred v1.2.2 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/dvsekhvalnov/jose2go v1.8.0 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
