@@ -51,6 +51,7 @@ type Config struct {
 	Relations              []AdditionalRelation   `yaml:"relations,omitempty"`
 	Comments               []AdditionalComment    `yaml:"comments,omitempty"`
 	Comment                *CommentConfig         `yaml:"comment,omitempty"`
+	Markdown               *MarkdownConfig        `yaml:"markdown,omitempty"`
 	Dict                   dict.Dict              `yaml:"dict,omitempty"`
 	Templates              Templates              `yaml:"templates,omitempty"`
 	DetectVirtualRelations DetectVirtualRelations `yaml:"detectVirtualRelations,omitempty"`
@@ -291,12 +292,18 @@ func (c *Config) setDefault() error {
 		c.ER.Distance = &DefaultERDistance
 	}
 
-
 	// Set default for Comment config
 	if c.Comment == nil {
 		c.Comment = &CommentConfig{}
 	}
 	c.Comment.setDefaultComment()
+
+	// Set default for Markdown config
+	if c.Markdown == nil {
+		c.Markdown = &MarkdownConfig{}
+	}
+	c.Markdown.SetDefaults()
+
 	return nil
 }
 
@@ -346,13 +353,20 @@ func (c *Config) validate() error {
 		}
 	}
 
-
 	// Validate Comment config
 	if c.Comment != nil {
 		if err := c.Comment.Validate(); err != nil {
 			return err
 		}
 	}
+
+	// Validate Markdown config
+	if c.Markdown != nil {
+		if err := c.Markdown.Validate(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

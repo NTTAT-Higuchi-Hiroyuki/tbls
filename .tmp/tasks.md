@@ -72,12 +72,12 @@
 
 #### Task 2.1: Markdown設定構造体の実装
 
-- [ ] config/markdown.go ファイル作成
-- [ ] MarkdownConfig, ObjectCustomConfig 構造体の定義
-- [ ] TableCustomConfig, ColumnCustomConfig 構造体の定義
-- [ ] config/config.go への MarkdownConfig フィールド追加
-- [ ] 設定値検証メソッドの実装
-- [ ] 基本的な単体テスト作成
+- [x] config/markdown.go ファイル作成
+- [x] MarkdownConfig, ObjectCustomConfig 構造体の定義
+- [x] TableCustomConfig, ColumnCustomConfig 構造体の定義
+- [x] config/config.go への MarkdownConfig フィールド追加
+- [x] 設定値検証メソッドの実装
+- [x] 基本的な単体テスト作成
 - **完了条件**: Markdown設定構造体が正常動作し、テストがパス
 - **依存**: Task 1.5
 - **推定時間**: 3時間
