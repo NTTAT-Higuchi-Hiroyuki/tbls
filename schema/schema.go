@@ -88,11 +88,30 @@ func (vs Viewpoints) Merge(in *Viewpoint) Viewpoints {
 
 // Index is the struct for database index.
 type Index struct {
-	Name    string   `json:"name"`
-	Def     string   `json:"def"`
-	Table   *string  `json:"table"`
-	Columns []string `json:"columns"`
-	Comment string   `json:"comment,omitempty"`
+	Name        string   `json:"name"`
+	Def         string   `json:"def"`
+	Table       *string  `json:"table"`
+	Columns     []string `json:"columns"`
+	Comment     string   `json:"comment,omitempty"`
+	LogicalName string   `json:"logicalName,omitempty" yaml:"logicalName,omitempty"`
+}
+
+// SetLogicalNameFromComment はコメントから論理名を抽出してLogicalNameフィールドに設定する
+func (i *Index) SetLogicalNameFromComment(separator string) {
+	if i.Comment == "" || separator == "" {
+		return
+	}
+
+	logicalName := ExtractLogicalName(i.Comment, separator)
+	i.LogicalName = logicalName
+}
+
+// GetLogicalNameOrFallback は論理名が設定されている場合はそれを返し、未設定の場合は物理名を返す
+func (i *Index) GetLogicalNameOrFallback() string {
+	if i.LogicalName != "" {
+		return i.LogicalName
+	}
+	return i.Name
 }
 
 // Constraint is the struct for database constraint.
@@ -105,13 +124,51 @@ type Constraint struct {
 	Columns           []string `json:"columns,omitempty"`
 	ReferencedColumns []string `json:"referenced_columns,omitempty" yaml:"referencedColumns,omitempty"`
 	Comment           string   `json:"comment,omitempty"`
+	LogicalName       string   `json:"logicalName,omitempty" yaml:"logicalName,omitempty"`
+}
+
+// SetLogicalNameFromComment はコメントから論理名を抽出してLogicalNameフィールドに設定する
+func (c *Constraint) SetLogicalNameFromComment(separator string) {
+	if c.Comment == "" || separator == "" {
+		return
+	}
+
+	logicalName := ExtractLogicalName(c.Comment, separator)
+	c.LogicalName = logicalName
+}
+
+// GetLogicalNameOrFallback は論理名が設定されている場合はそれを返し、未設定の場合は物理名を返す
+func (c *Constraint) GetLogicalNameOrFallback() string {
+	if c.LogicalName != "" {
+		return c.LogicalName
+	}
+	return c.Name
 }
 
 // Trigger is the struct for database trigger.
 type Trigger struct {
-	Name    string `json:"name"`
-	Def     string `json:"def"`
-	Comment string `json:"comment,omitempty"`
+	Name        string `json:"name"`
+	Def         string `json:"def"`
+	Comment     string `json:"comment,omitempty"`
+	LogicalName string `json:"logicalName,omitempty" yaml:"logicalName,omitempty"`
+}
+
+// SetLogicalNameFromComment はコメントから論理名を抽出してLogicalNameフィールドに設定する
+func (t *Trigger) SetLogicalNameFromComment(separator string) {
+	if t.Comment == "" || separator == "" {
+		return
+	}
+
+	logicalName := ExtractLogicalName(t.Comment, separator)
+	t.LogicalName = logicalName
+}
+
+// GetLogicalNameOrFallback は論理名が設定されている場合はそれを返し、未設定の場合は物理名を返す
+func (t *Trigger) GetLogicalNameOrFallback() string {
+	if t.LogicalName != "" {
+		return t.LogicalName
+	}
+	return t.Name
 }
 
 // Column is the struct for table column.
@@ -130,6 +187,25 @@ type Column struct {
 	PK              bool
 	FK              bool
 	HideForER       bool
+	LogicalName     string `json:"logicalName,omitempty" yaml:"logicalName,omitempty"`
+}
+
+// SetLogicalNameFromComment はコメントから論理名を抽出してLogicalNameフィールドに設定する
+func (c *Column) SetLogicalNameFromComment(separator string) {
+	if c.Comment == "" || separator == "" {
+		return
+	}
+
+	logicalName := ExtractLogicalName(c.Comment, separator)
+	c.LogicalName = logicalName
+}
+
+// GetLogicalNameOrFallback は論理名が設定されている場合はそれを返し、未設定の場合は物理名を返す
+func (c *Column) GetLogicalNameOrFallback() string {
+	if c.LogicalName != "" {
+		return c.LogicalName
+	}
+	return c.Name
 }
 
 type TableViewpoint struct {
@@ -152,6 +228,25 @@ type Table struct {
 	Labels           Labels
 	ReferencedTables []*Table
 	External         bool
+	LogicalName      string `json:"logicalName,omitempty" yaml:"logicalName,omitempty"`
+}
+
+// SetLogicalNameFromComment はコメントから論理名を抽出してLogicalNameフィールドに設定する
+func (t *Table) SetLogicalNameFromComment(separator string) {
+	if t.Comment == "" || separator == "" {
+		return
+	}
+
+	logicalName := ExtractLogicalName(t.Comment, separator)
+	t.LogicalName = logicalName
+}
+
+// GetLogicalNameOrFallback は論理名が設定されている場合はそれを返し、未設定の場合は物理名を返す
+func (t *Table) GetLogicalNameOrFallback() string {
+	if t.LogicalName != "" {
+		return t.LogicalName
+	}
+	return t.Name
 }
 
 // Relation is the struct for table relation.

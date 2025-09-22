@@ -48,11 +48,11 @@
 
 #### Task 1.4: スキーマ構造体拡張
 
-- [ ] schema/schema.go に LogicalName フィールド追加（Table, Column, Index）
-- [ ] SetLogicalNameFromComment メソッド実装
-- [ ] GetLogicalNameOrFallback メソッド実装
-- [ ] JSON/YAML シリアライズ対応確認
-- [ ] 既存テストの更新
+- [x] schema/schema.go に LogicalName フィールド追加（Table, Column, Index）
+- [x] SetLogicalNameFromComment メソッド実装
+- [x] GetLogicalNameOrFallback メソッド実装
+- [x] JSON/YAML シリアライズ対応確認
+- [x] 既存テストの更新
 - **完了条件**: 拡張されたスキーマ構造体が正常動作し、既存テストがパス
 - **依存**: Task 1.3
 - **推定時間**: 2時間
