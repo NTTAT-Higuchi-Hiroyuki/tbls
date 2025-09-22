@@ -1,16 +1,15 @@
-feat(schema): Task 1.3 - コメント解析ロジックの実装
+feat(schema): Task 1.5 - 論理名処理ユーティリティの実装
 
 詳細:
-- schema/comment.goファイル作成完了
-- CommentParserインターフェース定義完了
-- DefaultCommentParser構造体実装完了
-- ParseComment, ExtractLogicalName, ExtractCleanComment, HasLogicalNameメソッド実装完了
-- UTF-8安全な文字列処理実装完了
-- ValidateCommentSeparator関数によるエラーハンドリング実装完了
-- テスト設計書T001-T205対応の包括的テストケース実装完了
-- 日本語・絵文字・中国語でのUTF-8テスト完了
-- ベンチマークテスト実装完了
-- gofmtフォーマット完了
-- 全テストパス確認済み
+- schema/logical_name.go ファイル作成完了
+- LogicalNameProcessor による一括スキーマ処理機能実装
+- LogicalNameDisplayController による表示制御機能実装
+- LogicalNameValidator による論理名検証機能実装
+- LogicalNameHelper による便利関数実装
+- LogicalNameStatistics による統計情報機能実装
+- 包括的なテストケース実装（100%カバレッジ）
+- UTF-8安全処理、エラーハンドリング、フォーマット機能完備
+- 既存のschema/schema.goメソッドとの完全な整合性確保
+- 統合シナリオテストによる動作確認完了
 
-関連タスク: #Task1.3
+関連タスク: #1.5
