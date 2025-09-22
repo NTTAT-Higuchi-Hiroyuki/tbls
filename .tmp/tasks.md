@@ -84,12 +84,12 @@
 
 #### Task 2.2: Markdownカスタマイズエンジンの実装
 
-- [ ] output/md/customizer.go ファイル作成
-- [ ] MarkdownCustomizer インターフェースの定義
-- [ ] CustomizedTableData, CustomizedColumnData 構造体の実装
-- [ ] CustomizeTableOutput, CustomizeColumnOutput メソッド実装
-- [ ] ApplyAliases, GetDisplayOrder メソッド実装
-- [ ] カスタマイズエンジンの単体テスト作成
+- [x] output/md/customizer.go ファイル作成
+- [x] MarkdownCustomizer インターフェースの定義
+- [x] CustomizedTableData, CustomizedColumnData 構造体の実装
+- [x] CustomizeTableOutput, CustomizeColumnOutput メソッド実装
+- [x] ApplyAliases, GetDisplayOrder メソッド実装
+- [x] カスタマイズエンジンの単体テスト作成
 - **完了条件**: Markdownカスタマイズエンジンが正常動作し、テストがパス
 - **依存**: Task 2.1
 - **推定時間**: 4時間
