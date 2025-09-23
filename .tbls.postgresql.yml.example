@@ -1,0 +1,55 @@
+# PostgreSQL用 .tbls.yml設定例
+
+name: "PostgreSQLプロジェクト"
+desc: "PostgreSQLデータベーススキーマドキュメント"
+
+# PostgreSQL接続設定
+dsn:
+  url: "postgres://username:password@localhost:5432/database_name?sslmode=disable"
+
+# PostgreSQL特有のコメント設定
+comment:
+  separator: ":"  # PostgreSQLのCOMMENT構文用
+
+markdown:
+  tables:
+    show_logical_name: true
+    order: ["name", "logical_name", "comment", "type"]
+    aliases:
+      name: "テーブル名"
+      logical_name: "論理名"
+      comment: "説明"
+      type: "種別"
+
+  columns:
+    show_logical_name: true
+    order: ["name", "logical_name", "type", "nullable", "default", "comment"]
+    aliases:
+      name: "カラム名"
+      logical_name: "論理名"
+      type: "データ型"
+      nullable: "NULL許可"
+      default: "デフォルト値"
+      comment: "説明"
+
+# PostgreSQL向けER図設定
+er:
+  format: "svg"
+  comment: true
+  showColumnTypes:
+    related: true
+    primary: true
+
+# PostgreSQL特有のオブジェクト除外
+exclude:
+  - "pg_*"           # PostgreSQLシステムテーブル
+  - "information_schema.*"
+  - "*_pkey"         # 自動生成される主キー制約
+
+lint:
+  require:
+    columnComment:
+      enabled: true
+      exclude: ["id", "created_at", "updated_at"]
+    tableComment:
+      enabled: true

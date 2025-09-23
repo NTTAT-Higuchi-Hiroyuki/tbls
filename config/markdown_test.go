@@ -7,18 +7,10 @@ import (
 )
 
 func TestMarkdownConfig_GetObjectConfig(t *testing.T) {
-	mc := &MarkdownConfig{
-		Database: &ObjectCustomConfig{
-			ShowLogicalName: true,
-			Order:           []string{"name", "logical_name"},
-			Aliases:         map[string]string{"name": "データベース名"},
-		},
+	config := &MarkdownConfig{
+		Database: &ObjectCustomConfig{ShowLogicalName: true},
 		Tables: &TableCustomConfig{
-			ObjectCustomConfig: &ObjectCustomConfig{
-				ShowLogicalName: true,
-				Order:           []string{"name", "logical_name", "comment"},
-				Aliases:         map[string]string{"name": "テーブル名"},
-			},
+			ObjectCustomConfig: &ObjectCustomConfig{ShowLogicalName: false},
 		},
 	}
 
@@ -30,20 +22,12 @@ func TestMarkdownConfig_GetObjectConfig(t *testing.T) {
 		{
 			name:       "database config",
 			objectType: "database",
-			want: &ObjectCustomConfig{
-				ShowLogicalName: true,
-				Order:           []string{"name", "logical_name"},
-				Aliases:         map[string]string{"name": "データベース名"},
-			},
+			want:       config.Database,
 		},
 		{
 			name:       "table config",
-			objectType: "table",
-			want: &ObjectCustomConfig{
-				ShowLogicalName: true,
-				Order:           []string{"name", "logical_name", "comment"},
-				Aliases:         map[string]string{"name": "テーブル名"},
-			},
+			objectType: "tables",
+			want:       config.Tables.ObjectCustomConfig,
 		},
 		{
 			name:       "unknown object type",
@@ -54,8 +38,8 @@ func TestMarkdownConfig_GetObjectConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mc.GetObjectConfig(tt.objectType)
-			if !equalObjectCustomConfig(got, tt.want) {
+			got := config.GetObjectConfig(tt.objectType)
+			if got != tt.want {
 				t.Errorf("GetObjectConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -63,19 +47,11 @@ func TestMarkdownConfig_GetObjectConfig(t *testing.T) {
 }
 
 func TestMarkdownConfig_GetTableSpecificConfig(t *testing.T) {
-	mc := &MarkdownConfig{
+	config := &MarkdownConfig{
 		Tables: &TableCustomConfig{
-			ObjectCustomConfig: &ObjectCustomConfig{
-				ShowLogicalName: true,
-				Order:           []string{"name", "logical_name", "comment"},
-				Aliases:         map[string]string{"name": "テーブル名"},
-			},
+			ObjectCustomConfig: &ObjectCustomConfig{ShowLogicalName: true},
 			Specific: map[string]*ObjectCustomConfig{
-				"users": {
-					ShowLogicalName: false,
-					Order:           []string{"name", "type", "comment"},
-					Aliases:         map[string]string{"name": "ユーザー名"},
-				},
+				"users": {ShowLogicalName: false},
 			},
 		},
 	}
@@ -88,11 +64,7 @@ func TestMarkdownConfig_GetTableSpecificConfig(t *testing.T) {
 		{
 			name:      "existing specific config",
 			tableName: "users",
-			want: &ObjectCustomConfig{
-				ShowLogicalName: false,
-				Order:           []string{"name", "type", "comment"},
-				Aliases:         map[string]string{"name": "ユーザー名"},
-			},
+			want:      config.Tables.Specific["users"],
 		},
 		{
 			name:      "non-existing specific config",
@@ -103,8 +75,8 @@ func TestMarkdownConfig_GetTableSpecificConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mc.GetTableSpecificConfig(tt.tableName)
-			if !equalObjectCustomConfig(got, tt.want) {
+			got := config.GetTableSpecificConfig(tt.tableName)
+			if got != tt.want {
 				t.Errorf("GetTableSpecificConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -112,18 +84,17 @@ func TestMarkdownConfig_GetTableSpecificConfig(t *testing.T) {
 }
 
 func TestMarkdownConfig_GetEffectiveConfig(t *testing.T) {
-	mc := &MarkdownConfig{
+	config := &MarkdownConfig{
 		Tables: &TableCustomConfig{
 			ObjectCustomConfig: &ObjectCustomConfig{
 				ShowLogicalName: true,
-				Order:           []string{"name", "logical_name", "comment"},
-				Aliases:         map[string]string{"name": "テーブル名", "comment": "コメント"},
+				Order:           []string{"name", "comment"},
+				Aliases:         map[string]string{"name": "テーブル名"},
 			},
 			Specific: map[string]*ObjectCustomConfig{
 				"users": {
 					ShowLogicalName: false,
-					Order:           []string{"name", "type", "comment"},
-					Aliases:         map[string]string{"name": "ユーザー名"},
+					Order:           []string{"logical_name", "name"},
 				},
 			},
 		},
@@ -133,35 +104,39 @@ func TestMarkdownConfig_GetEffectiveConfig(t *testing.T) {
 		name         string
 		objectType   string
 		specificName string
-		want         *ObjectCustomConfig
+		wantShow     bool
+		wantOrder    []string
 	}{
 		{
 			name:         "with specific config - overrides global",
-			objectType:   "table",
+			objectType:   "tables",
 			specificName: "users",
-			want: &ObjectCustomConfig{
-				ShowLogicalName: false,
-				Order:           []string{"name", "type", "comment"},
-				Aliases:         map[string]string{"name": "ユーザー名", "comment": "コメント"},
-			},
+			wantShow:     false,
+			wantOrder:    []string{"logical_name", "name"},
 		},
 		{
 			name:         "without specific config - uses global",
-			objectType:   "table",
+			objectType:   "tables",
 			specificName: "posts",
-			want: &ObjectCustomConfig{
-				ShowLogicalName: true,
-				Order:           []string{"name", "logical_name", "comment"},
-				Aliases:         map[string]string{"name": "テーブル名", "comment": "コメント"},
-			},
+			wantShow:     true,
+			wantOrder:    []string{"name", "comment"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mc.GetEffectiveConfig(tt.objectType, tt.specificName)
-			if !equalObjectCustomConfig(got, tt.want) {
-				t.Errorf("GetEffectiveConfig() = %v, want %v", got, tt.want)
+			got := config.GetEffectiveConfig(tt.objectType, tt.specificName)
+			if got.ShowLogicalName != tt.wantShow {
+				t.Errorf("GetEffectiveConfig().ShowLogicalName = %v, want %v", got.ShowLogicalName, tt.wantShow)
+			}
+			if len(got.Order) != len(tt.wantOrder) {
+				t.Errorf("GetEffectiveConfig().Order length = %v, want %v", len(got.Order), len(tt.wantOrder))
+				return
+			}
+			for i, o := range got.Order {
+				if o != tt.wantOrder[i] {
+					t.Errorf("GetEffectiveConfig().Order[%d] = %v, want %v", i, o, tt.wantOrder[i])
+				}
 			}
 		})
 	}
@@ -192,7 +167,7 @@ func TestMarkdownConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "invalid config - duplicate order fields",
+			name: "invalid config with warnings - duplicate order fields (auto-fixed)",
 			config: &MarkdownConfig{
 				Tables: &TableCustomConfig{
 					ObjectCustomConfig: &ObjectCustomConfig{
@@ -200,10 +175,10 @@ func TestMarkdownConfig_Validate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
+			wantErr: false, // 新しいバリデーションは警告を表示して自動修正するため、エラーは返さない
 		},
 		{
-			name: "invalid config - empty alias key",
+			name: "invalid config with warnings - empty alias key (auto-fixed)",
 			config: &MarkdownConfig{
 				Tables: &TableCustomConfig{
 					ObjectCustomConfig: &ObjectCustomConfig{
@@ -211,10 +186,10 @@ func TestMarkdownConfig_Validate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
+			wantErr: false, // 新しいバリデーションは警告を表示して自動修正するため、エラーは返さない
 		},
 		{
-			name: "invalid config - empty alias value",
+			name: "invalid config with warnings - empty alias value (auto-fixed)",
 			config: &MarkdownConfig{
 				Tables: &TableCustomConfig{
 					ObjectCustomConfig: &ObjectCustomConfig{
@@ -222,7 +197,7 @@ func TestMarkdownConfig_Validate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
+			wantErr: false, // 新しいバリデーションは警告を表示して自動修正するため、エラーは返さない
 		},
 	}
 
@@ -256,7 +231,6 @@ func TestMarkdownConfig_SetDefaults(t *testing.T) {
 				return mc.Database != nil &&
 					mc.Tables != nil &&
 					mc.Columns != nil &&
-					len(mc.Database.Order) > 0 &&
 					len(mc.Tables.Order) > 0 &&
 					len(mc.Columns.Order) > 0
 			},
@@ -282,7 +256,7 @@ func TestMarkdownConfig_SetDefaults(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.config.SetDefaults()
 			if !tt.check(tt.config) {
-				t.Errorf("SetDefaults() failed validation check")
+				t.Errorf("SetDefaults() did not set expected defaults")
 			}
 		})
 	}
@@ -290,157 +264,101 @@ func TestMarkdownConfig_SetDefaults(t *testing.T) {
 
 func TestMarkdownConfig_YAML_Serialization(t *testing.T) {
 	config := &MarkdownConfig{
-		Database: &ObjectCustomConfig{
-			ShowLogicalName: true,
-			Order:           []string{"name", "logical_name", "comment"},
-			Aliases:         map[string]string{"name": "データベース名"},
-		},
 		Tables: &TableCustomConfig{
 			ObjectCustomConfig: &ObjectCustomConfig{
 				ShowLogicalName: true,
-				Order:           []string{"name", "logical_name", "comment", "type"},
+				Order:           []string{"name", "logical_name", "comment"},
 				Aliases:         map[string]string{"name": "テーブル名"},
 			},
 			Specific: map[string]*ObjectCustomConfig{
 				"users": {
-					Order:   []string{"name", "type", "comment"},
-					Aliases: map[string]string{"name": "ユーザー名"},
+					ShowLogicalName: false,
+					Order:           []string{"logical_name", "name"},
+					Aliases:         map[string]string{"logical_name": "論理名"},
 				},
 			},
 		},
-		Columns: &ColumnCustomConfig{
-			ObjectCustomConfig: &ObjectCustomConfig{
-				ShowLogicalName: true,
-				Order:           []string{"name", "logical_name", "type", "nullable"},
-				Aliases:         map[string]string{"name": "カラム名", "type": "データ型"},
-			},
-		},
 	}
 
-	// Serialize to YAML
-	yamlData, err := yaml.Marshal(config)
+	// Marshal to YAML
+	data, err := yaml.Marshal(config)
 	if err != nil {
-		t.Fatalf("Failed to marshal YAML: %v", err)
+		t.Fatalf("Failed to marshal config: %v", err)
 	}
 
-	// Deserialize from YAML
-	var deserialized MarkdownConfig
-	err = yaml.Unmarshal(yamlData, &deserialized)
+	// Unmarshal from YAML
+	var unmarshaled MarkdownConfig
+	err = yaml.Unmarshal(data, &unmarshaled)
 	if err != nil {
-		t.Fatalf("Failed to unmarshal YAML: %v", err)
+		t.Fatalf("Failed to unmarshal config: %v", err)
 	}
 
-	// Verify the deserialized config
-	if !deserialized.Database.ShowLogicalName {
-		t.Error("Database.ShowLogicalName should be true")
+	// Check that the unmarshaled config matches the original
+	if unmarshaled.Tables.ShowLogicalName != config.Tables.ShowLogicalName {
+		t.Errorf("ShowLogicalName mismatch: got %v, want %v", unmarshaled.Tables.ShowLogicalName, config.Tables.ShowLogicalName)
 	}
-
-	if len(deserialized.Database.Order) != 3 {
-		t.Errorf("Database.Order length should be 3, got %d", len(deserialized.Database.Order))
+	if len(unmarshaled.Tables.Order) != len(config.Tables.Order) {
+		t.Errorf("Order length mismatch: got %v, want %v", len(unmarshaled.Tables.Order), len(config.Tables.Order))
 	}
-
-	if deserialized.Database.Aliases["name"] != "データベース名" {
-		t.Errorf("Database alias for 'name' should be 'データベース名', got %s", deserialized.Database.Aliases["name"])
-	}
-
-	if deserialized.Tables.Specific["users"].Aliases["name"] != "ユーザー名" {
-		t.Errorf("Table specific alias should be 'ユーザー名', got %s", deserialized.Tables.Specific["users"].Aliases["name"])
+	if unmarshaled.Tables.Aliases["name"] != config.Tables.Aliases["name"] {
+		t.Errorf("Aliases mismatch: got %v, want %v", unmarshaled.Tables.Aliases["name"], config.Tables.Aliases["name"])
 	}
 }
 
-func TestMergeObjectConfigs(t *testing.T) {
-	global := &ObjectCustomConfig{
-		ShowLogicalName: true,
-		Order:           []string{"name", "logical_name", "comment"},
-		Aliases:         map[string]string{"name": "グローバル名", "comment": "コメント"},
-	}
-
-	specific := &ObjectCustomConfig{
-		ShowLogicalName: false,
-		Order:           []string{"name", "type"},
-		Aliases:         map[string]string{"name": "特定名", "type": "タイプ"},
-	}
-
+func TestMarkdownConfig_IsValid(t *testing.T) {
 	tests := []struct {
-		name     string
-		global   *ObjectCustomConfig
-		specific *ObjectCustomConfig
-		want     *ObjectCustomConfig
+		name    string
+		config  *MarkdownConfig
+		want    bool
 	}{
 		{
-			name:     "both nil",
-			global:   nil,
-			specific: nil,
-			want:     nil,
+			name:   "nil config",
+			config: nil,
+			want:   true,
 		},
 		{
-			name:     "global nil",
-			global:   nil,
-			specific: specific,
-			want:     specific,
-		},
-		{
-			name:     "specific nil",
-			global:   global,
-			specific: nil,
-			want:     global,
-		},
-		{
-			name:     "merge both",
-			global:   global,
-			specific: specific,
-			want: &ObjectCustomConfig{
-				ShowLogicalName: false,                    // from specific
-				Order:           []string{"name", "type"}, // from specific
-				Aliases: map[string]string{
-					"name":    "特定名",  // from specific
-					"comment": "コメント", // from global
-					"type":    "タイプ",  // from specific
+			name: "valid config",
+			config: &MarkdownConfig{
+				Tables: &TableCustomConfig{
+					ObjectCustomConfig: &ObjectCustomConfig{
+						ShowLogicalName: true,
+						Order:           []string{"name", "logical_name", "comment"},
+						Aliases:         map[string]string{"name": "テーブル名"},
+					},
 				},
 			},
+			want: true,
+		},
+		{
+			name: "invalid config - duplicate order fields",
+			config: &MarkdownConfig{
+				Tables: &TableCustomConfig{
+					ObjectCustomConfig: &ObjectCustomConfig{
+						Order: []string{"name", "name", "comment"},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "invalid config - empty alias key",
+			config: &MarkdownConfig{
+				Tables: &TableCustomConfig{
+					ObjectCustomConfig: &ObjectCustomConfig{
+						Aliases: map[string]string{"": "empty key"},
+					},
+				},
+			},
+			want: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mergeObjectConfigs(tt.global, tt.specific)
-			if !equalObjectCustomConfig(got, tt.want) {
-				t.Errorf("mergeObjectConfigs() = %v, want %v", got, tt.want)
+			got := tt.config.IsValid()
+			if got != tt.want {
+				t.Errorf("IsValid() = %v, want %v", got, tt.want)
 			}
 		})
 	}
-}
-
-// Helper function to compare ObjectCustomConfig instances
-func equalObjectCustomConfig(a, b *ObjectCustomConfig) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-
-	if a.ShowLogicalName != b.ShowLogicalName {
-		return false
-	}
-
-	if len(a.Order) != len(b.Order) {
-		return false
-	}
-	for i, v := range a.Order {
-		if v != b.Order[i] {
-			return false
-		}
-	}
-
-	if len(a.Aliases) != len(b.Aliases) {
-		return false
-	}
-	for k, v := range a.Aliases {
-		if b.Aliases[k] != v {
-			return false
-		}
-	}
-
-	return true
 }

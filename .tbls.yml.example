@@ -1,0 +1,172 @@
+# .tbls.yml.example - tblsの設定ファイル例
+# この設定ファイルをコピーして .tbls.yml として保存し、必要に応じて編集してください
+
+# プロジェクト情報
+name: "プロジェクト名"
+desc: "データベーススキーマドキュメント"
+
+# データベース接続設定
+dsn:
+  url: "postgres://user:password@localhost:5432/dbname?sslmode=disable"
+  # または環境変数 TBLS_DSN を使用
+  # url: "${TBLS_DSN}"
+
+# ドキュメント出力設定
+docPath: "docs/db"  # ドキュメント出力ディレクトリ
+
+# フォーマット設定
+format:
+  adjust: true      # テーブル幅の自動調整
+  sort: true        # テーブル・カラムのソート
+  number: false     # 行番号の表示
+
+# ER図設定
+er:
+  skip: false       # ER図生成をスキップ
+  format: "svg"     # svg, png, jpg, mermaid
+  comment: true     # コメント表示
+  distance: 2       # リレーション表示距離
+
+# コメント解析設定（新機能）
+comment:
+  separator: "|"    # 論理名とコメントの区切り文字
+  # 例: "ユーザーID|システム内でユーザーを一意に識別するID"
+  # → 論理名: "ユーザーID", コメント: "システム内でユーザーを一意に識別するID"
+
+# Markdown出力カスタマイズ設定（新機能）
+markdown:
+  # データベース設定
+  database:
+    show_logical_name: true
+    order: ["name", "logical_name", "comment"]
+    aliases:
+      name: "データベース名"
+      logical_name: "論理名"
+      comment: "説明"
+
+  # スキーマ設定
+  schemas:
+    show_logical_name: true
+    order: ["name", "logical_name", "comment"]
+    aliases:
+      name: "スキーマ名"
+      logical_name: "論理名"
+      comment: "説明"
+
+  # テーブル設定
+  tables:
+    show_logical_name: true
+    order: ["name", "logical_name", "comment", "type"]
+    aliases:
+      name: "テーブル名"
+      logical_name: "論理名"
+      comment: "説明"
+      type: "タイプ"
+    # 特定テーブルの個別設定
+    specific:
+      users:
+        show_logical_name: true
+        aliases:
+          name: "ユーザーテーブル"
+
+  # カラム設定
+  columns:
+    show_logical_name: true
+    order: ["name", "logical_name", "type", "nullable", "default", "comment"]
+    aliases:
+      name: "カラム名"
+      logical_name: "論理名"
+      type: "データ型"
+      nullable: "NULL許可"
+      default: "デフォルト値"
+      comment: "説明"
+    # テーブル別カラム設定
+    specific:
+      users:
+        order: ["logical_name", "name", "type", "nullable", "comment"]
+
+  # ビュー設定
+  views:
+    show_logical_name: true
+    order: ["name", "logical_name", "comment", "definition"]
+    aliases:
+      name: "ビュー名"
+      logical_name: "論理名"
+      comment: "説明"
+      definition: "定義"
+
+  # インデックス設定
+  indexes:
+    show_logical_name: true
+    order: ["name", "logical_name", "columns", "comment"]
+    aliases:
+      name: "インデックス名"
+      logical_name: "論理名"
+      columns: "対象カラム"
+      comment: "説明"
+
+  # 制約設定
+  constraints:
+    show_logical_name: true
+    order: ["name", "logical_name", "type", "columns", "comment"]
+    aliases:
+      name: "制約名"
+      logical_name: "論理名"
+      type: "制約タイプ"
+      columns: "対象カラム"
+      comment: "説明"
+
+  # 関数設定
+  functions:
+    show_logical_name: true
+    order: ["name", "logical_name", "return_type", "arguments", "comment"]
+    aliases:
+      name: "関数名"
+      logical_name: "論理名"
+      return_type: "戻り値型"
+      arguments: "引数"
+      comment: "説明"
+
+# テーブル・カラムフィルタ設定
+include:
+  - "users"
+  - "posts"
+  - "comments"
+# exclude:
+#   - "*_temp"
+#   - "test_*"
+
+# リント設定
+lint:
+  require:
+    columnComment:
+      enabled: true
+      exclude:
+        - "id"
+        - "created_at"
+        - "updated_at"
+    tableComment:
+      enabled: true
+
+# 追加リレーション定義
+# relations:
+#   - table: posts
+#     columns: [user_id]
+#     parentTable: users
+#     parentColumns: [id]
+#     def: "FOREIGN KEY (user_id) REFERENCES users (id)"
+
+# 追加コメント定義
+# comments:
+#   - table: users
+#     tableComment: "ユーザー情報を管理するテーブル"
+#     columnComments:
+#       id: "ユーザーID（主キー）"
+#       name: "ユーザー名"
+#       email: "メールアドレス"
+
+# 必要バージョン指定
+# requiredVersion: ">= 1.0.0"
+
+# ベースURL設定（リンク生成用）
+# baseUrl: "https://example.com/docs"

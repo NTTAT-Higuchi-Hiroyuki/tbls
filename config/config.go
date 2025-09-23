@@ -422,15 +422,107 @@ func (c *Config) LoadConfigFile(path string) (err error) {
 	return c.LoadConfig(buf)
 }
 
-// LoadConfig load config from []byte.
+// LoadConfig load config from []byte with enhanced error handling and validation.
 func (c *Config) LoadConfig(in []byte) (err error) {
 	defer func() {
 		err = errors.WithStack(err)
 	}()
+
+	// Parse YAML with detailed error handling
 	if err := yaml.Unmarshal(expand.ExpandenvYAMLBytes(in), c); err != nil {
-		return fmt.Errorf("failed to load config file: %w", err)
+		// Check for common YAML errors and provide helpful messages
+		if strings.Contains(err.Error(), "unmarshal") {
+			fmt.Printf("警告: 設定ファイルのYAML構文に問題があります: %v\n", err)
+			fmt.Printf("情報: デフォルト設定で続行します。\n")
+
+			// Try to create a minimal working config
+			c.setMinimalDefaults()
+			c.MergedDict.Merge(c.Dict.Dump())
+			return nil
+		}
+		return fmt.Errorf("設定ファイルの読み込みに失敗しました: %w", err)
 	}
+
+	// Validate config after loading
+	if err := c.validateAfterLoad(); err != nil {
+		fmt.Printf("警告: 設定ファイルに問題があります: %v\n", err)
+		fmt.Printf("情報: 問題のある設定はデフォルト値に修正されました。\n")
+	}
+
 	c.MergedDict.Merge(c.Dict.Dump())
+	return nil
+}
+
+// setMinimalDefaults sets minimal default values when config loading fails
+func (c *Config) setMinimalDefaults() {
+	if c.DocPath == "" {
+		c.DocPath = DefaultDocPath
+	}
+	if c.ER.Format == "" {
+		c.ER.Format = DefaultERFormat
+	}
+	if c.ER.Distance == nil {
+		c.ER.Distance = &DefaultERDistance
+	}
+	if c.Comment == nil {
+		c.Comment = &CommentConfig{
+			Separator: DefaultCommentSeparator,
+		}
+	}
+	if c.Markdown == nil {
+		c.Markdown = &MarkdownConfig{}
+		c.Markdown.SetDefaults()
+	}
+}
+
+// validateAfterLoad performs validation after config loading with fallback
+func (c *Config) validateAfterLoad() error {
+	var errors []string
+
+	// Validate Comment config with fallback
+	if c.Comment != nil {
+		if !c.Comment.IsValid() {
+			errors = append(errors, "コメント設定に問題があります")
+			c.Comment = &CommentConfig{Separator: DefaultCommentSeparator}
+		}
+	}
+
+	// Validate Markdown config with fallback
+	if c.Markdown != nil {
+		if !c.Markdown.IsValid() {
+			errors = append(errors, "Markdown設定に問題があります")
+			c.Markdown = &MarkdownConfig{}
+			c.Markdown.SetDefaults()
+		}
+	}
+
+	// Validate ER format
+	if !lo.Contains(SupportERFormat, c.ER.Format) {
+		errors = append(errors, fmt.Sprintf("サポートされていないER形式: %s", c.ER.Format))
+		c.ER.Format = DefaultERFormat
+	}
+
+	// Check for duplicate config files (if Path is set)
+	if c.Path != "" {
+		dir := filepath.Dir(c.Path)
+		var foundConfigs []string
+		for _, path := range DefaultConfigFilePaths {
+			fullPath := filepath.Join(dir, path)
+			if fullPath != c.Path {
+				if _, err := os.Stat(fullPath); err == nil {
+					foundConfigs = append(foundConfigs, path)
+				}
+			}
+		}
+		if len(foundConfigs) > 0 {
+			errors = append(errors, fmt.Sprintf("重複する設定ファイルが検出されました: %s", strings.Join(foundConfigs, ", ")))
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf(strings.Join(errors, "; "))
+	}
+
 	return nil
 }
 

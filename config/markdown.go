@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 // MarkdownConfig is the configuration for Markdown output customization.
@@ -150,118 +151,246 @@ func mergeObjectConfigs(global, specific *ObjectCustomConfig) *ObjectCustomConfi
 	return merged
 }
 
-// Validate validates the MarkdownConfig and returns validation errors.
+// Validate validates the MarkdownConfig and returns validation errors with fallback support.
 func (mc *MarkdownConfig) Validate() error {
 	if mc == nil {
 		return nil
 	}
 
-	var errors []string
+	var warnings []string
+	hasErrors := false
 
 	// Validate database config
-	if err := validateObjectConfig(mc.Database, "database"); err != nil {
-		errors = append(errors, err.Error())
+	if mc.Database != nil {
+		if issues := validateObjectConfigWithFallback(mc.Database, "database"); len(issues) > 0 {
+			warnings = append(warnings, issues...)
+		}
 	}
 
 	// Validate schemas config
-	if err := validateObjectConfig(mc.Schemas, "schemas"); err != nil {
-		errors = append(errors, err.Error())
+	if mc.Schemas != nil {
+		if issues := validateObjectConfigWithFallback(mc.Schemas, "schemas"); len(issues) > 0 {
+			warnings = append(warnings, issues...)
+		}
 	}
 
 	// Validate tables config
 	if mc.Tables != nil {
-		if err := validateObjectConfig(mc.Tables.ObjectCustomConfig, "tables"); err != nil {
-			errors = append(errors, err.Error())
+		if mc.Tables.ObjectCustomConfig != nil {
+			if issues := validateObjectConfigWithFallback(mc.Tables.ObjectCustomConfig, "tables"); len(issues) > 0 {
+				warnings = append(warnings, issues...)
+			}
 		}
 		for tableName, config := range mc.Tables.Specific {
-			if err := validateObjectConfig(config, fmt.Sprintf("tables.specific.%s", tableName)); err != nil {
-				errors = append(errors, err.Error())
+			if config != nil {
+				if issues := validateObjectConfigWithFallback(config, fmt.Sprintf("tables.specific.%s", tableName)); len(issues) > 0 {
+					warnings = append(warnings, issues...)
+				}
 			}
 		}
 	}
 
 	// Validate columns config
 	if mc.Columns != nil {
-		if err := validateObjectConfig(mc.Columns.ObjectCustomConfig, "columns"); err != nil {
-			errors = append(errors, err.Error())
+		if mc.Columns.ObjectCustomConfig != nil {
+			if issues := validateObjectConfigWithFallback(mc.Columns.ObjectCustomConfig, "columns"); len(issues) > 0 {
+				warnings = append(warnings, issues...)
+			}
 		}
 		for tableName, config := range mc.Columns.Specific {
-			if err := validateObjectConfig(config, fmt.Sprintf("columns.specific.%s", tableName)); err != nil {
-				errors = append(errors, err.Error())
+			if config != nil {
+				if issues := validateObjectConfigWithFallback(config, fmt.Sprintf("columns.specific.%s", tableName)); len(issues) > 0 {
+					warnings = append(warnings, issues...)
+				}
 			}
 		}
 	}
 
 	// Validate views config
-	if err := validateObjectConfig(mc.Views, "views"); err != nil {
-		errors = append(errors, err.Error())
+	if mc.Views != nil {
+		if issues := validateObjectConfigWithFallback(mc.Views, "views"); len(issues) > 0 {
+			warnings = append(warnings, issues...)
+		}
 	}
 
 	// Validate indexes config
-	if err := validateObjectConfig(mc.Indexes, "indexes"); err != nil {
-		errors = append(errors, err.Error())
+	if mc.Indexes != nil {
+		if issues := validateObjectConfigWithFallback(mc.Indexes, "indexes"); len(issues) > 0 {
+			warnings = append(warnings, issues...)
+		}
 	}
 
 	// Validate constraints config
-	if err := validateObjectConfig(mc.Constraints, "constraints"); err != nil {
-		errors = append(errors, err.Error())
+	if mc.Constraints != nil {
+		if issues := validateObjectConfigWithFallback(mc.Constraints, "constraints"); len(issues) > 0 {
+			warnings = append(warnings, issues...)
+		}
 	}
 
 	// Validate functions config
-	if err := validateObjectConfig(mc.Functions, "functions"); err != nil {
-		errors = append(errors, err.Error())
+	if mc.Functions != nil {
+		if issues := validateObjectConfigWithFallback(mc.Functions, "functions"); len(issues) > 0 {
+			warnings = append(warnings, issues...)
+		}
 	}
 
 	// Validate others config
 	for objectType, config := range mc.Others {
-		if err := validateObjectConfig(config, fmt.Sprintf("others.%s", objectType)); err != nil {
-			errors = append(errors, err.Error())
+		if config != nil {
+			if issues := validateObjectConfigWithFallback(config, fmt.Sprintf("others.%s", objectType)); len(issues) > 0 {
+				warnings = append(warnings, issues...)
+			}
 		}
 	}
 
-	if len(errors) > 0 {
-		return fmt.Errorf("markdown config validation errors: %s", strings.Join(errors, "; "))
+	// Print warnings
+	for _, warning := range warnings {
+		fmt.Printf("警告: %s\n", warning)
+	}
+
+	if hasErrors {
+		return fmt.Errorf("markdown設定に重大なエラーがあります。デフォルト値で続行します")
 	}
 
 	return nil
 }
 
-// validateObjectConfig validates a single ObjectCustomConfig.
-func validateObjectConfig(config *ObjectCustomConfig, context string) error {
+// validateObjectConfigWithFallback validates a single ObjectCustomConfig with fallback support.
+func validateObjectConfigWithFallback(config *ObjectCustomConfig, context string) []string {
 	if config == nil {
 		return nil
 	}
 
-	var errors []string
+	var warnings []string
 
-	// Validate order fields - check for duplicates
+	// Validate order fields - check for duplicates and fix them
 	seen := make(map[string]bool)
+	cleanOrder := make([]string, 0, len(config.Order))
+
 	for _, field := range config.Order {
 		if field == "" {
-			errors = append(errors, fmt.Sprintf("%s: empty field name in order", context))
+			warnings = append(warnings, fmt.Sprintf("%s: 空のフィールド名が順序設定に含まれています（スキップします）", context))
 			continue
 		}
+
+		// Check UTF-8 validity
+		if !utf8.ValidString(field) {
+			warnings = append(warnings, fmt.Sprintf("%s: 無効なUTF-8文字を含むフィールド '%s' をスキップします", context, field))
+			continue
+		}
+
 		if seen[field] {
-			errors = append(errors, fmt.Sprintf("%s: duplicate field '%s' in order", context, field))
+			warnings = append(warnings, fmt.Sprintf("%s: 重複するフィールド '%s' が順序設定にあります（最初のもののみ使用）", context, field))
+			continue
+		}
+
+		seen[field] = true
+		cleanOrder = append(cleanOrder, field)
+	}
+
+	// Update order with cleaned version
+	config.Order = cleanOrder
+
+	// Validate aliases - check for empty keys or values and clean up
+	cleanAliases := make(map[string]string)
+	for key, value := range config.Aliases {
+		if key == "" {
+			warnings = append(warnings, fmt.Sprintf("%s: 空のキーがエイリアス設定にあります（スキップします）", context))
+			continue
+		}
+		if value == "" {
+			warnings = append(warnings, fmt.Sprintf("%s: エイリアスキー '%s' の値が空です（スキップします）", context, key))
+			continue
+		}
+
+		// Check UTF-8 validity
+		if !utf8.ValidString(key) || !utf8.ValidString(value) {
+			warnings = append(warnings, fmt.Sprintf("%s: 無効なUTF-8文字を含むエイリアス '%s' -> '%s' をスキップします", context, key, value))
+			continue
+		}
+
+		cleanAliases[key] = value
+	}
+
+	// Update aliases with cleaned version
+	config.Aliases = cleanAliases
+
+	return warnings
+}
+
+// validateObjectConfig validates a single ObjectCustomConfig (legacy method for compatibility).
+func validateObjectConfig(config *ObjectCustomConfig, context string) error {
+	warnings := validateObjectConfigWithFallback(config, context)
+	if len(warnings) > 0 {
+		return fmt.Errorf(strings.Join(warnings, "; "))
+	}
+	return nil
+}
+
+// IsValid checks if the MarkdownConfig is valid without modifying it.
+func (mc *MarkdownConfig) IsValid() bool {
+	if mc == nil {
+		return true
+	}
+
+	// Check each configuration
+	configs := []*ObjectCustomConfig{
+		mc.Database, mc.Schemas, mc.Views, mc.Indexes, mc.Constraints, mc.Functions,
+	}
+
+	if mc.Tables != nil {
+		configs = append(configs, mc.Tables.ObjectCustomConfig)
+		for _, config := range mc.Tables.Specific {
+			configs = append(configs, config)
+		}
+	}
+
+	if mc.Columns != nil {
+		configs = append(configs, mc.Columns.ObjectCustomConfig)
+		for _, config := range mc.Columns.Specific {
+			configs = append(configs, config)
+		}
+	}
+
+	for _, config := range mc.Others {
+		configs = append(configs, config)
+	}
+
+	for _, config := range configs {
+		if !isObjectConfigValid(config) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// isObjectConfigValid checks if a single ObjectCustomConfig is valid.
+func isObjectConfigValid(config *ObjectCustomConfig) bool {
+	if config == nil {
+		return true
+	}
+
+	// Check for duplicate fields in order
+	seen := make(map[string]bool)
+	for _, field := range config.Order {
+		if field == "" || !utf8.ValidString(field) {
+			return false
+		}
+		if seen[field] {
+			return false
 		}
 		seen[field] = true
 	}
 
-	// Validate aliases - check for empty keys or values
+	// Check aliases
 	for key, value := range config.Aliases {
-		if key == "" {
-			errors = append(errors, fmt.Sprintf("%s: empty key in aliases", context))
-		}
-		if value == "" {
-			errors = append(errors, fmt.Sprintf("%s: empty value for alias key '%s'", context, key))
+		if key == "" || value == "" || !utf8.ValidString(key) || !utf8.ValidString(value) {
+			return false
 		}
 	}
 
-	if len(errors) > 0 {
-		return fmt.Errorf(strings.Join(errors, "; "))
-	}
-
-	return nil
+	return true
 }
 
 // SetDefaults sets default values for MarkdownConfig.
