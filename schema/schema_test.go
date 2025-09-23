@@ -341,24 +341,24 @@ func TestTable_SetLogicalNameFromComment(t *testing.T) {
 
 func TestTable_GetLogicalNameOrFallback(t *testing.T) {
 	tests := []struct {
-		name    string
-		table   *Table
-		want    string
+		name  string
+		table *Table
+		want  string
 	}{
 		{
-			name:    "論理名が設定されている場合",
-			table:   &Table{Name: "users", LogicalName: "ユーザーテーブル"},
-			want:    "ユーザーテーブル",
+			name:  "論理名が設定されている場合",
+			table: &Table{Name: "users", LogicalName: "ユーザーテーブル"},
+			want:  "ユーザーテーブル",
 		},
 		{
-			name:    "論理名が空の場合",
-			table:   &Table{Name: "users", LogicalName: ""},
-			want:    "users",
+			name:  "論理名が空の場合",
+			table: &Table{Name: "users", LogicalName: ""},
+			want:  "users",
 		},
 		{
-			name:    "論理名が未設定の場合",
-			table:   &Table{Name: "users"},
-			want:    "users",
+			name:  "論理名が未設定の場合",
+			table: &Table{Name: "users"},
+			want:  "users",
 		},
 	}
 

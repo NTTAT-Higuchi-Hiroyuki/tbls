@@ -15,3 +15,58 @@ comments:
   columnComments:
     b: column comment required.
     b2: column comment required.
+comment:
+  separator: ":"
+markdown:
+  database:
+    order:
+    - name
+    - logical_name
+    - comment
+  schemas:
+    order:
+    - name
+    - logical_name
+    - comment
+  tables:
+    objectcustomconfig:
+      order:
+      - name
+      - logical_name
+      - comment
+      - type
+  columns:
+    objectcustomconfig:
+      order:
+      - name
+      - logical_name
+      - type
+      - nullable
+      - default
+      - comment
+  views:
+    order:
+    - name
+    - logical_name
+    - comment
+    - definition
+  indexes:
+    order:
+    - name
+    - logical_name
+    - columns
+    - comment
+  constraints:
+    order:
+    - name
+    - logical_name
+    - type
+    - columns
+    - comment
+  functions:
+    order:
+    - name
+    - logical_name
+    - return_type
+    - arguments
+    - comment

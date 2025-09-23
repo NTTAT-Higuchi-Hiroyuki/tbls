@@ -307,9 +307,9 @@ func TestMarkdownConfig_YAML_Serialization(t *testing.T) {
 
 func TestMarkdownConfig_IsValid(t *testing.T) {
 	tests := []struct {
-		name    string
-		config  *MarkdownConfig
-		want    bool
+		name   string
+		config *MarkdownConfig
+		want   bool
 	}{
 		{
 			name:   "nil config",

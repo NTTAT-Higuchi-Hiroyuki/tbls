@@ -655,7 +655,6 @@ func (c *Config) ModifySchema(s *schema.Schema) error {
 		}
 	}
 
-
 	// Apply logical name parsing if comment separator is configured
 	if c.Comment != nil && c.Comment.Separator != "" {
 		processor := schema.NewLogicalNameProcessor(c.Comment.Separator)
