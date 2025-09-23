@@ -34,15 +34,17 @@ var tmpl embed.FS
 
 // Md struct.
 type Md struct {
-	config *config.Config
-	tmpl   embed.FS
+	config     *config.Config
+	tmpl       embed.FS
+	customizer MarkdownCustomizer
 }
 
 // New return Md.
 func New(c *config.Config) *Md {
 	return &Md{
-		config: c,
-		tmpl:   tmpl,
+		config:     c,
+		tmpl:       tmpl,
+		customizer: NewDefaultMarkdownCustomizer(),
 	}
 }
 
@@ -540,6 +542,11 @@ func (m *Md) makeTableTemplateData(t *schema.Table) map[string]interface{} {
 	hideColumns := m.config.Format.HideColumnsWithoutValues
 	showOnlyFirstParagraph := m.config.Format.ShowOnlyFirstParagraph
 
+	// Check if customization is enabled
+	if m.config.Markdown != nil {
+		return m.makeTableTemplateDataWithCustomization(t)
+	}
+
 	// Columns
 	columnsData := [][]string{}
 	columnsHeader := []string{}
@@ -747,6 +754,375 @@ func (m *Md) makeTableTemplateData(t *schema.Table) map[string]interface{} {
 	}
 }
 
+// makeTableTemplateDataWithCustomization extends the basic makeTableTemplateData
+// with customization support for logical names, column ordering, and aliases
+func (m *Md) makeTableTemplateDataWithCustomization(t *schema.Table) map[string]interface{} {
+	// Start with the basic template data structure
+	number := m.config.Format.Number
+	adjust := m.config.Format.Adjust
+	hideColumns := m.config.Format.HideColumnsWithoutValues
+	showOnlyFirstParagraph := m.config.Format.ShowOnlyFirstParagraph
+
+	// Get markdown customization configuration
+	var markdownConfig *config.MarkdownConfig
+	if m.config.Markdown != nil {
+		markdownConfig = m.config.Markdown
+	}
+
+	// Apply table-specific customization if available
+	var tableCustomConfig *config.ObjectCustomConfig
+	if markdownConfig != nil && markdownConfig.Tables != nil {
+		// Use general table configuration
+		tableCustomConfig = markdownConfig.Tables.ObjectCustomConfig
+
+		// Override with specific table configuration if exists
+		if markdownConfig.Tables.Specific != nil {
+			if specificConfig, exists := markdownConfig.Tables.Specific[t.Name]; exists {
+				tableCustomConfig = specificConfig
+			}
+		}
+	}
+
+	// Build basic columns data
+	columnsData := [][]string{}
+	columnsHeader := []string{}
+	columnsHeaderLine := []string{}
+	m.adjustColumnHeader(&columnsHeader, &columnsHeaderLine, true, "Name")
+	m.adjustColumnHeader(&columnsHeader, &columnsHeaderLine, true, "Type")
+	m.adjustColumnHeader(&columnsHeader, &columnsHeaderLine, true, "Default")
+	m.adjustColumnHeader(&columnsHeader, &columnsHeaderLine, true, "Nullable")
+	m.adjustColumnHeader(&columnsHeader, &columnsHeaderLine, t.ShowColumn(schema.ColumnExtraDef, hideColumns), "Extra Definition")
+	m.adjustColumnHeader(&columnsHeader, &columnsHeaderLine, t.ShowColumn(schema.ColumnOccurrences, hideColumns), "Occurrences")
+	m.adjustColumnHeader(&columnsHeader, &columnsHeaderLine, t.ShowColumn(schema.ColumnPercents, hideColumns), "Percents")
+	m.adjustColumnHeader(&columnsHeader, &columnsHeaderLine, t.ShowColumn(schema.ColumnChildren, hideColumns), "Children")
+	m.adjustColumnHeader(&columnsHeader, &columnsHeaderLine, t.ShowColumn(schema.ColumnParents, hideColumns), "Parents")
+	m.adjustColumnHeader(&columnsHeader, &columnsHeaderLine, t.ShowColumn(schema.ColumnComment, hideColumns), "Comment")
+	m.adjustColumnHeader(&columnsHeader, &columnsHeaderLine, t.ShowColumn(schema.ColumnLabels, hideColumns), "Labels")
+
+	columnsData = append(columnsData, columnsHeader, columnsHeaderLine)
+
+	for _, c := range t.Columns {
+		childRelations := []string{}
+		cEncountered := map[string]bool{}
+		for _, r := range c.ChildRelations {
+			if _, ok := cEncountered[r.Table.Name]; ok {
+				continue
+			}
+			childRelations = append(childRelations, fmt.Sprintf("[%s](%s%s.md)", r.Table.Name, m.config.BaseURL, mdurl.Encode(r.Table.Name)))
+			cEncountered[r.Table.Name] = true
+		}
+		parentRelations := []string{}
+		pEncountered := map[string]bool{}
+		for _, r := range c.ParentRelations {
+			if _, ok := pEncountered[r.ParentTable.Name]; ok {
+				continue
+			}
+			parentRelations = append(parentRelations, fmt.Sprintf("[%s](%s%s.md)", r.ParentTable.Name, m.config.BaseURL, mdurl.Encode(r.ParentTable.Name)))
+			pEncountered[r.ParentTable.Name] = true
+		}
+
+		data := []string{
+			c.Name,
+			c.Type,
+			c.Default.String,
+			fmt.Sprintf("%v", c.Nullable),
+		}
+		adjustData(&data, t.ShowColumn(schema.ColumnExtraDef, hideColumns), mdEscRep.Replace(c.ExtraDef))
+		adjustData(&data, t.ShowColumn(schema.ColumnOccurrences, hideColumns), fmt.Sprint(c.Occurrences.Int32))
+		adjustData(&data, t.ShowColumn(schema.ColumnPercents, hideColumns), fmt.Sprintf("%.1f", c.Percents.Float64))
+		adjustData(&data, t.ShowColumn(schema.ColumnChildren, hideColumns), strings.Join(childRelations, " "))
+		adjustData(&data, t.ShowColumn(schema.ColumnParents, hideColumns), strings.Join(parentRelations, " "))
+		adjustData(&data, t.ShowColumn(schema.ColumnComment, hideColumns), mdEscRep.Replace(c.Comment))
+		adjustData(&data, t.ShowColumn(schema.ColumnLabels, hideColumns), output.LabelJoin(c.Labels))
+		columnsData = append(columnsData, data)
+	}
+
+	// Apply customization if available
+	if tableCustomConfig != nil {
+		customizedData := m.customizeColumnsData(t, columnsData, tableCustomConfig)
+		columnsData = customizedData
+	}
+
+	// Build other sections (non-customized)
+	// Viewpoints
+	viewpointsData := [][]string{
+		[]string{
+			m.config.MergedDict.Lookup("Name"),
+			m.config.MergedDict.Lookup("Definition"),
+		},
+		[]string{"----", "----------"},
+	}
+
+	for _, v := range t.Viewpoints {
+		desc := v.Desc
+		if showOnlyFirstParagraph {
+			desc = output.ShowOnlyFirstParagraph(desc)
+		}
+		data := []string{
+			fmt.Sprintf("[%s](viewpoint-%d.md)", v.Name, v.Index),
+			desc,
+		}
+		viewpointsData = append(viewpointsData, data)
+	}
+
+	// Constraints
+	constraintsData := [][]string{
+		[]string{
+			m.config.MergedDict.Lookup("Name"),
+			m.config.MergedDict.Lookup("Type"),
+			m.config.MergedDict.Lookup("Definition"),
+		},
+		[]string{"----", "----", "----------"},
+	}
+	cComment := false
+	for _, c := range t.Constraints {
+		if c.Comment != "" {
+			cComment = true
+		}
+	}
+	if cComment {
+		constraintsData[0] = append(constraintsData[0], m.config.MergedDict.Lookup("Comment"))
+		constraintsData[1] = append(constraintsData[1], "-------")
+	}
+	for _, c := range t.Constraints {
+		data := []string{
+			c.Name,
+			c.Type,
+			c.Def,
+		}
+		if cComment {
+			data = append(data, c.Comment)
+		}
+		constraintsData = append(constraintsData, data)
+	}
+
+	// Indexes
+	indexesData := [][]string{
+		[]string{
+			m.config.MergedDict.Lookup("Name"),
+			m.config.MergedDict.Lookup("Definition"),
+		},
+		[]string{"----", "----------"},
+	}
+	iComment := false
+	for _, i := range t.Indexes {
+		if i.Comment != "" {
+			iComment = true
+		}
+	}
+	if iComment {
+		indexesData[0] = append(indexesData[0], m.config.MergedDict.Lookup("Comment"))
+		indexesData[1] = append(indexesData[1], "-------")
+	}
+	for _, i := range t.Indexes {
+		data := []string{
+			i.Name,
+			i.Def,
+		}
+		if iComment {
+			data = append(data, i.Comment)
+		}
+		indexesData = append(indexesData, data)
+	}
+
+	// Triggers
+	triggersData := [][]string{
+		{
+			m.config.MergedDict.Lookup("Name"),
+			m.config.MergedDict.Lookup("Definition"),
+		},
+		{"----", "----------"},
+	}
+	tComment := false
+	for _, t := range t.Triggers {
+		if t.Comment != "" {
+			tComment = true
+		}
+	}
+	if tComment {
+		triggersData[0] = append(triggersData[0], m.config.MergedDict.Lookup("Comment"))
+		triggersData[1] = append(triggersData[1], "-------")
+	}
+	for _, t := range t.Triggers {
+		data := []string{
+			t.Name,
+			t.Def,
+		}
+		if tComment {
+			data = append(data, t.Comment)
+		}
+		triggersData = append(triggersData, data)
+	}
+
+	// Referenced Tables
+	hasReferencedTableWithLabels := false
+	for _, rt := range t.ReferencedTables {
+		if len(rt.Labels) > 0 {
+			hasReferencedTableWithLabels = true
+			break
+		}
+	}
+
+	referencedTables := m.tablesData(t.ReferencedTables, number, adjust, showOnlyFirstParagraph, hasReferencedTableWithLabels)
+
+	if number {
+		columnsData = m.addNumberToTable(columnsData)
+		constraintsData = m.addNumberToTable(constraintsData)
+		indexesData = m.addNumberToTable(indexesData)
+		triggersData = m.addNumberToTable(triggersData)
+		referencedTables = m.addNumberToTable(referencedTables)
+	}
+
+	if adjust {
+		return map[string]interface{}{
+			"Table":            t,
+			"Columns":          adjustTable(columnsData),
+			"Viewpoints":       adjustTable(viewpointsData),
+			"Constraints":      adjustTable(constraintsData),
+			"Indexes":          adjustTable(indexesData),
+			"Triggers":         adjustTable(triggersData),
+			"ReferencedTables": adjustTable(referencedTables),
+		}
+	}
+
+	return map[string]interface{}{
+		"Table":            t,
+		"Columns":          columnsData,
+		"Viewpoints":       viewpointsData,
+		"Constraints":      constraintsData,
+		"Indexes":          indexesData,
+		"Triggers":         triggersData,
+		"ReferencedTables": referencedTables,
+	}
+}
+
+// customizeColumnsData applies customization settings to the columns data
+func (m *Md) customizeColumnsData(t *schema.Table, basicData [][]string, config *config.ObjectCustomConfig) [][]string {
+	if len(basicData) < 2 {
+		return basicData
+	}
+
+	// Parse current structure
+	headerRow := basicData[0]
+	dataRows := basicData[2:]
+
+	// Build customized columns structure
+	customizedData := m.buildCustomizedColumns(t, headerRow, dataRows, config)
+
+	return customizedData
+}
+
+// buildCustomizedColumns builds the customized columns table data
+func (m *Md) buildCustomizedColumns(t *schema.Table, originalHeaders []string, originalDataRows [][]string, config *config.ObjectCustomConfig) [][]string {
+	// Determine the final column order and structure
+	finalStructure := m.determineFinalColumnStructure(originalHeaders, config)
+
+	// Build new header row with aliases applied
+	newHeaderRow := make([]string, len(finalStructure))
+	newSeparatorRow := make([]string, len(finalStructure))
+
+	for i, colInfo := range finalStructure {
+		headerText := colInfo.DisplayName
+		if config.Aliases != nil {
+			if alias, exists := config.Aliases[colInfo.OriginalName]; exists && alias != "" {
+				headerText = alias
+			}
+		}
+		newHeaderRow[i] = headerText
+		newSeparatorRow[i] = strings.Repeat("-", len(headerText))
+	}
+
+	// Build new data rows
+	newDataRows := make([][]string, len(originalDataRows))
+	for rowIdx, originalRow := range originalDataRows {
+		newRow := make([]string, len(finalStructure))
+		for colIdx, colInfo := range finalStructure {
+			if colInfo.SourceIndex >= 0 && colInfo.SourceIndex < len(originalRow) {
+				newRow[colIdx] = originalRow[colInfo.SourceIndex]
+			} else if colInfo.IsLogicalName && rowIdx < len(t.Columns) {
+				// Add logical name data
+				newRow[colIdx] = t.Columns[rowIdx].GetLogicalNameOrFallback()
+			} else {
+				newRow[colIdx] = ""
+			}
+		}
+		newDataRows[rowIdx] = newRow
+	}
+
+	// Combine all rows
+	result := [][]string{newHeaderRow, newSeparatorRow}
+	result = append(result, newDataRows...)
+
+	return result
+}
+
+// ColumnInfo represents information about a column in the final structure
+type ColumnInfo struct {
+	OriginalName  string // Original column name (e.g., "Name", "Type")
+	DisplayName   string // Display name for the column
+	SourceIndex   int    // Index in the original data (-1 for new columns)
+	IsLogicalName bool   // Whether this is a logical name column
+}
+
+// determineFinalColumnStructure determines the final column structure based on configuration
+func (m *Md) determineFinalColumnStructure(originalHeaders []string, config *config.ObjectCustomConfig) []ColumnInfo {
+	// Create mapping of original headers to their indices
+	headerIndexMap := make(map[string]int)
+	for i, header := range originalHeaders {
+		headerIndexMap[header] = i
+	}
+
+	// Start with the original headers as default columns, preserving existing order
+	defaultColumns := make([]string, len(originalHeaders))
+	copy(defaultColumns, originalHeaders)
+
+	// Add logical name column if enabled
+	if config.ShowLogicalName {
+		// Insert after Name column
+		var newDefault []string
+		for _, header := range defaultColumns {
+			newDefault = append(newDefault, header)
+			if header == "Name" {
+				newDefault = append(newDefault, "Logical Name")
+			}
+		}
+		// If no "Name" column found, just append at the beginning
+		if len(newDefault) == len(defaultColumns) {
+			newDefault = append([]string{"Logical Name"}, defaultColumns...)
+		}
+		defaultColumns = newDefault
+	}
+
+	// Apply custom order if specified
+	var finalOrder []string
+	if len(config.Order) > 0 {
+		finalOrder = m.customizer.GetDisplayOrder(defaultColumns, config.Order)
+	} else {
+		finalOrder = defaultColumns
+	}
+
+	// Build final structure
+	result := make([]ColumnInfo, 0, len(finalOrder))
+	for _, columnName := range finalOrder {
+		colInfo := ColumnInfo{
+			OriginalName:  columnName,
+			DisplayName:   columnName,
+			SourceIndex:   -1,
+			IsLogicalName: false,
+		}
+
+		if columnName == "Logical Name" {
+			colInfo.IsLogicalName = true
+		} else if idx, exists := headerIndexMap[columnName]; exists {
+			colInfo.SourceIndex = idx
+		}
+
+		result = append(result, colInfo)
+	}
+
+	return result
+}
+
 func (m *Md) makeViewpointTemplateData(v *schema.Viewpoint) (map[string]interface{}, error) {
 	number := m.config.Format.Number
 	adjust := m.config.Format.Adjust
@@ -790,8 +1166,15 @@ func (m *Md) makeViewpointTemplateData(v *schema.Viewpoint) (map[string]interfac
 
 func (m *Md) adjustColumnHeader(columnsHeader *[]string, columnsHeaderLine *[]string, hasColumn bool, name string) {
 	if hasColumn {
-		*columnsHeader = append(*columnsHeader, m.config.MergedDict.Lookup(name))
-		*columnsHeaderLine = append(*columnsHeaderLine, strings.Repeat("-", runewidth.StringWidth(m.config.MergedDict.Lookup(name))))
+		headerText := m.config.MergedDict.Lookup(name)
+
+		// Apply aliases if Markdown customization is enabled
+		if m.config.Markdown != nil && m.config.Markdown.Columns != nil && m.config.Markdown.Columns.Aliases != nil {
+			headerText = m.customizer.ApplyAliases(headerText, m.config.Markdown.Columns.Aliases)
+		}
+
+		*columnsHeader = append(*columnsHeader, headerText)
+		*columnsHeaderLine = append(*columnsHeaderLine, strings.Repeat("-", runewidth.StringWidth(headerText)))
 	}
 }
 
@@ -803,10 +1186,22 @@ func (m *Md) tablesData(tables []*schema.Table, number, adjust, showOnlyFirstPar
 		m.config.MergedDict.Lookup("Comment"),
 		m.config.MergedDict.Lookup("Type"),
 	}
+
+	// Apply aliases to headers if customization is enabled
+	if m.config.Markdown != nil && m.config.Markdown.Tables != nil && m.config.Markdown.Tables.Aliases != nil {
+		for i, h := range header {
+			header[i] = m.customizer.ApplyAliases(h, m.config.Markdown.Tables.Aliases)
+		}
+	}
+
 	headerLine := []string{"----", "-------", "-------", "----"}
 
 	if hasTableWithLabels {
-		header = append(header, m.config.MergedDict.Lookup("Labels"))
+		labelsHeader := m.config.MergedDict.Lookup("Labels")
+		if m.config.Markdown != nil && m.config.Markdown.Tables != nil && m.config.Markdown.Tables.Aliases != nil {
+			labelsHeader = m.customizer.ApplyAliases(labelsHeader, m.config.Markdown.Tables.Aliases)
+		}
+		header = append(header, labelsHeader)
 		headerLine = append(headerLine, "------")
 	}
 
@@ -851,6 +1246,14 @@ func (m *Md) functionsData(functions []*schema.Function, number, adjust bool) []
 		m.config.MergedDict.Lookup("Arguments"),
 		m.config.MergedDict.Lookup("Type"),
 	}
+
+	// Apply aliases to headers if customization is enabled
+	if m.config.Markdown != nil && m.config.Markdown.Functions != nil && m.config.Markdown.Functions.Aliases != nil {
+		for i, h := range header {
+			header[i] = m.customizer.ApplyAliases(h, m.config.Markdown.Functions.Aliases)
+		}
+	}
+
 	headerLine := []string{"----", "-------", "-------", "----"}
 	data = append(data,
 		header,

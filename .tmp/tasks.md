@@ -108,11 +108,11 @@
 
 #### Task 2.4: output/md パッケージ統合
 
-- [ ] output/md/md.go への MarkdownCustomizer 統合
-- [ ] adjustColumnHeader メソッドの拡張（エイリアス対応）
-- [ ] tablesData, functionsData メソッドの拡張
-- [ ] 既存機能との完全な互換性確保
-- [ ] 統合テスト作成（既存テンプレートでの動作確認）
+- [x] output/md/md.go への MarkdownCustomizer 統合
+- [x] adjustColumnHeader メソッドの拡張（エイリアス対応）
+- [x] tablesData, functionsData メソッドの拡張
+- [x] 既存機能との完全な互換性確保
+- [x] 統合テスト作成（既存テンプレートでの動作確認）
 - **完了条件**: Markdown出力でカスタマイズ機能が正常動作し、既存テンプレートが維持される
 - **依存**: Task 2.3
 - **推定時間**: 2時間
