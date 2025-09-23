@@ -14,6 +14,8 @@ Key features of `tbls` are:
 - **Single binary = CI-Friendly.**
 - **[Support many databases](#support-datasource).**
 - **Work as linter for database**
+- **Advanced comment parsing and logical name extraction**
+- **Customizable Markdown output with flexible column ordering and aliases**
 
 ### Table of Contents
 
@@ -37,6 +39,8 @@ Key features of `tbls` are:
     - [Filter tables](#filter-tables)
     - [Lint](#lint)
     - [Comments](#comments)
+    - [Comment Parsing and Logical Names](#comment-parsing-and-logical-names)
+    - [Markdown Output Customization](#markdown-output-customization)
     - [Relations](#relations)
     - [Viewpoints](#viewpoints)
     - [Dictionary](#dictionary)
@@ -51,23 +55,66 @@ Key features of `tbls` are:
 
 ## Quick Start
 
-Document a database with one command.
+1. Install tbls to macOS via [Homebrew](https://brew.sh/) or [MacPorts](https://www.macports.org/)
 
-```console
-$ tbls doc postgres://dbuser:dbpass@hostname:5432/dbname
-```
+   **Homebrew**
 
-Using docker image.
+   ```console
+   $ brew install k1LoW/tap/tbls
+   ```
 
-```console
-$ docker run --rm -v $PWD:/work -w /work ghcr.io/k1low/tbls doc postgres://dbuser:dbpass@hostname:5432/dbname
-```
+   **MacPorts**
+
+   ```console
+   $ sudo port install tbls
+   ```
+
+   <br>
+
+2. Setup database
+
+   ```console
+   $ make setup
+   ```
+
+   <br>
+
+3. Run tbls doc to analyze a database and generate document in GitHub Flavored Markdown format.
+
+   ```console
+   $ tbls doc postgres://dbuser:dbpass@hostname:port/dbname
+   ```
+
+   or
+
+   ```console
+   $ tbls doc my://dbuser:dbpass@hostname:port/dbname
+   ```
+
+   <br>
+
+4. Commit generated document
+
+   ```console
+   $ git add .
+   $ git commit -m 'Update database document'
+   ```
+
+   <br>
+
+5. View the document on GitHub
+
+   ![sample document](https://user-images.githubusercontent.com/157344/62417503-0f5dd900-b6a3-11e9-9b88-25de2a1f6b97.png)
+
+   **[ Show sample document on GitHub](https://github.com/k1LoW/tbls/tree/main/sample/mysql)**
 
 ## Install
 
 **deb:**
 
-```console
+Use [dpkg](https://en.wikipedia.org/wiki/Dpkg):
+
+``` console
 $ export TBLS_VERSION=X.X.X
 $ curl -o tbls.deb -L https://github.com/k1LoW/tbls/releases/download/v$TBLS_VERSION/tbls_$TBLS_VERSION-1_amd64.deb
 $ dpkg -i tbls.deb
@@ -75,30 +122,34 @@ $ dpkg -i tbls.deb
 
 **RPM:**
 
-```console
+``` console
 $ export TBLS_VERSION=X.X.X
 $ yum install https://github.com/k1LoW/tbls/releases/download/v$TBLS_VERSION/tbls_$TBLS_VERSION-1_amd64.rpm
 ```
 
-**Homebrew:**
+**apk:**
+
+Use [apk](https://en.wikipedia.org/wiki/Alpine_Linux#APK_software_package_management):
+
+``` console
+$ export TBLS_VERSION=X.X.X
+$ curl -o tbls.apk -L https://github.com/k1LoW/tbls/releases/download/v$TBLS_VERSION/tbls_$TBLS_VERSION-1_amd64.apk
+$ apk add tbls.apk
+```
+
+**homebrew tap:**
 
 ```console
 $ brew install k1LoW/tap/tbls
 ```
 
-**MacPorts:**
+**macports:**
 
 ```console
 $ sudo port install tbls
 ```
 
-**[aqua](https://aquaproj.github.io/):**
-
-```console
-$ aqua g -i k1LoW/tbls
-```
-
-**Manually:**
+**manually:**
 
 Download binary from [releases page](https://github.com/k1LoW/tbls/releases)
 
@@ -108,358 +159,217 @@ Download binary from [releases page](https://github.com/k1LoW/tbls/releases)
 $ go install github.com/k1LoW/tbls@latest
 ```
 
-**Docker:**
+**docker:**
 
 ```console
 $ docker pull ghcr.io/k1low/tbls:latest
 ```
 
-**On GitHub Actions:**
-
-```yml
-# .github/workflows/doc.yml
-name: Document
-
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  doc:
-    runs-on: ubuntu-latest
-    steps:
-      -
-        name: Checkout .tbls.yml
-        uses: actions/checkout@v3
-      -
-        uses: k1low/setup-tbls@v1
-      -
-        name: Run tbls for generate database document
-        run: tbls doc
-```
-
-**:octocat: A GitHub Action for tbls is [here](https://github.com/k1LoW/setup-tbls).**
-
-**Temporary:**
+**install by aqua:**
 
 ```console
-$ source <(curl https://raw.githubusercontent.com/k1LoW/tbls/main/use)
-```
-
-```console
-$ curl -sL https://raw.githubusercontent.com/k1LoW/tbls/main/use > /tmp/use-tbls.tmp && . /tmp/use-tbls.tmp
+$ aqua g -i k1LoW/tbls
 ```
 
 ## Getting Started
 
 ### Document a database
 
-Add `.tbls.yml` (or `tbls.yml`) file to your repository.
+Add a `.tbls.yml` ( or `.tbls.yaml` ) file to your repository.
 
 ```yaml
 # .tbls.yml
 
-# DSN (Database Source Name) to connect database
-dsn: postgres://dbuser:dbpass@localhost:5432/dbname
+# Database document title
+name: myschema
+
+# Database to document
+dsn: my://dbuser:dbpass@localhost:3306/myschema
 
 # Path to generate document
-# Default is `dbdoc`
+# Default: `dbdoc`
 docPath: doc/schema
 ```
 
-> **Notice:** If you are using a symbol such as `#` `<` in database password, URL-encode the password
-
-Run `tbls doc` to analyzes the database and generate document in GitHub Friendly Markdown format.
+Run `tbls doc` to analyze a database and generate document in GitHub Flavored Markdown format.
 
 ```console
 $ tbls doc
 ```
 
-Commit `.tbls.yml` and the document.
+Commit the generated document and publish it on GitHub.
 
 ```console
-$ git add .tbls.yml doc/schema
+$ git add .
 $ git commit -m 'Add database document'
 $ git push origin main
 ```
 
-View the document on GitHub.
-
-[Sample document](sample/postgres/README.md)
-
-![sample](img/doc.png)
-
 ### Diff database and (document or database)
 
-Update database schema.
+#### `tbls diff` shows the difference between database schema and generated document.
 
 ```console
-$ psql -U dbuser -d dbname -h hostname -p 5432 -c 'ALTER TABLE users ADD COLUMN phone_number varchar(15);'
-Password for user dbuser:
-ALTER TABLE
-```
-
-`tbls diff` shows the difference between database schema and generated document.
-
-```diff
 $ tbls diff
-diff postgres://dbuser:*****@hostname:5432/dbname doc/schema/README.md
---- postgres://dbuser:*****@hostname:5432/dbname
-+++ doc/schema/README.md
-@@ -4,7 +4,7 @@
-
- | Name | Columns | Comment | Type |
- | ---- | ------- | ------- | ---- |
--| [users](users.md) | 7 | Users table | BASE TABLE |
-+| [users](users.md) | 6 | Users table | BASE TABLE |
- | [user_options](user_options.md) | 4 | User options table | BASE TABLE |
- | [posts](posts.md) | 8 | Posts table | BASE TABLE |
- | [comments](comments.md) | 6 | Comments<br>Multi-line<br>table<br>comment | BASE TABLE |
-diff postgres://dbuser:*****@hostname:5432/dbname doc/schema/users.md
---- postgres://dbuser:*****@hostname:5432/dbname
-+++ doc/schema/users.md
-@@ -14,7 +14,6 @@
- | email | varchar(355) |  | false |  |  | ex. user@example.com |
- | created | timestamp without time zone |  | false |  |  |  |
- | updated | timestamp without time zone |  | true |  |  |  |
--| phone_number | varchar(15) |  | true |  |  |  |
-
- ## Constraints
-
 ```
 
-And, `tbls diff` support for diff checking between database and other database
+Currently, `tbls diff` shows the difference between:
+
+1. `Add table`
+2. `Delete table`
+3. `Add column`
+4. `Delete column`
+5. `Change column ( type / not null )`
+
+#### `tbls diff` also compares between databases.
 
 ```console
-$ tbls diff postgres://dbuser:*****@local:5432/dbname postgres://dbuser:*****@production:5432/dbname
-```
-
-> **Notice:** `tbls diff` shows the difference Markdown documents only.
-
-### Re-generating database documentation
-
-Existing documentation can re-generated using either `--force` or `--rm-dist` flag.
-
-`--force` forces overwrite of the existing documents. It does not, however, remove files of removed tables.
-
-```console
-$ tbls doc --force
-```
-
-`--rm-dist` removes files in docPath before generating the documents.
-
-```console
-$ tbls doc --rm-dist
+$ tbls diff my://root:mypass@localhost:3306/myschema my://root:mypass@localhost:3306/myschema2
 ```
 
 ### Lint a database
 
-Add linting rule to `.tbls.yml` following
+`tbls lint` work as linter for database.
 
 ```yaml
 # .tbls.yml
 lint:
-  requireColumnComment:
+  require:
+    tableComment:
+      enabled: true
+      exclude:
+        - logs
+        - comment_*
+    columnComment:
+      enabled: true
+      exclude:
+        - id
+        - created_at
+        - updated_at
+    indexComment:
+      enabled: true
+    relationName:
+      enabled: true
+  columnType:
+    int:
+      enabled: true
+    varchar:
+      enabled: true
+  duplicateRelations:
+    enabled: true
+  requireForeignKeyIndex:
+    enabled: true
+  unrelatedTable:
     enabled: true
     exclude:
-      - id
-      - created
-      - updated
-  columnCount:
+      - logs
+      - comment_*
+  labelStyleBigQuery:
     enabled: true
-    max: 10
 ```
-
-Run `tbls lint` to check the database according to `lint:` rules
 
 ```console
 $ tbls lint
-users.username: column comment required.
-users.password: column comment required.
-users.phone_number: column comment required.
-posts.user_id: column comment required.
-posts.title: column comment required.
-posts.labels: column comment required.
-comments.post_id: column comment required.
-comment_stars.user_id: column comment required.
-post_comments.comment: column comment required.
-posts: too many columns. [12/10]
-comments: too many columns. [11/10]
-
-11 detected
 ```
 
 ### Measure document coverage
 
-`tbls coverage` measure and show document coverage (description, comments).
+`tbls coverage` measures and show document coverage ( description, comments ).
 
 ```console
 $ tbls coverage
-Table                       Coverage
-All tables                  16.1%
- public.users               20%
- public.user_options        37.5%
- public.posts               35.3%
- public.comments            14.3%
- public.comment_stars       0%
- public.logs                12.5%
- public.post_comments       87.5%
- public.post_comment_stars  0%
- public.CamelizeTable       0%
- public.hyphen-table        0%
- administrator.blogs        0%
- backup.blogs               0%
- backup.blog_options        0%
- time.bar                   0%
- time.hyphenated-table      0%
- time.referencing           0%
 ```
 
 ### Continuous Integration
 
-Continuous integration using tbls.
+`tbls` is a CI-Friendly tool.
 
-1. Commit the document using `tbls doc`.
-2. Update the database schema in the development cycle.
-3. Check for document updates by running `tbls diff` or `tbls lint` in CI.
-4. Return to **1**.
-
-**Example: Travis CI**
+For example, you can add following step to GitHub Actions.
 
 ```yaml
-# .travis.yml
-language: go
+name: Document
 
-install:
-  - source <(curl -sL https://raw.githubusercontent.com/k1LoW/tbls/main/use)
-script:
-  - tbls diff
-  - tbls lint
+on:
+  pull_request:
+
+jobs:
+  tbls:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        uses: actions/checkout@v2
+      -
+        uses: k1LoW/setup-tbls@v1
+      -
+        run: tbls diff
+        env:
+          TBLS_DSN: my://root:mypass@localhost:3306/myschema
 ```
-
-> **Tips:** If your CI based on Debian/Ubuntu (`/bin/sh -> dash`), you can use the following install command `curl -sL https://raw.githubusercontent.com/k1LoW/tbls/main/use > use-tbls.tmp && . ./use-tbls.tmp && rm ./use-tbls.tmp`
-
-> **Tips:** If the order of the columns does not match, you can use the `--sort` option.
 
 ## Configuration
 
 ### Name
 
-`name:` is used to specify the database name of the document.
+Database document title ( or `tbls doc -t title` )
 
 ```yaml
 # .tbls.yml
-name: mydatabase
+name: myschema
 ```
 
 ### Description
 
-`desc:` is used to specify the database description.
+Database document description
 
 ```yaml
 # .tbls.yml
-desc: This is My Database
+desc: This is database document for myschema
 ```
 
 ### Labels
 
-`labels:` is used to label the database or tables.
+Database labels are used to label databases.
 
-**label database:**
+The labels are used to filter databases in the index page, sort databases in the index page, and add metadata to each page.
 
 ```yaml
 # .tbls.yml
 labels:
-  - cmdb
+  - user
   - analytics
-```
-
-**label tables:**
-
-```yaml
-# .tbls.yml
-comments:
-  -
-    table: users
-    labels:
-      - user
-      - privacy data
-```
-
-**label columns:**
-
-```yaml
-# .tbls.yml
-comments:
-  -
-    table: users
-    columnLabels:
-      email:
-        - secure
-        - encrypted
 ```
 
 ### DSN
 
-`dsn:` (Data Source Name) is used to connect to database.
-
-```yaml
-# .tbls.yml
-dsn: my://dbuser:dbpass@hostname:3306/dbname
-```
-
 #### Support Datasource
-
-tbls supports the following databases/datasources.
 
 **PostgreSQL:**
 
 ```yaml
 # .tbls.yml
-dsn: postgres://dbuser:dbpass@hostname:5432/dbname
+dsn: postgres://dbuser:dbpass@hostname:port/dbname
 ```
 
 ```yaml
 # .tbls.yml
-dsn: pg://dbuser:dbpass@hostname:5432/dbname
-```
-
-When you want to disable SSL mode, add "?sslmode=disable"
-For example:
-```yaml
-dsn: pg://dbuser:dbpass@hostname:5432/dbname?sslmode=disable
+dsn:
+  url: postgres://dbuser:dbpass@hostname:port/dbname
+  # or `pg://`
+  # or `postgresql://`
 ```
 
 **MySQL:**
 
 ```yaml
 # .tbls.yml
-dsn: mysql://dbuser:dbpass@hostname:3306/dbname
+dsn: mysql://dbuser:dbpass@hostname:port/dbname
 ```
 
 ```yaml
 # .tbls.yml
-dsn: my://dbuser:dbpass@hostname:3306/dbname
-```
-
-When you want to hide AUTO_INCREMENT clause on the table definitions,
-add "?hide_auto_increment".
-For example:
-```yaml
-dsn: my://dbuser:dbpass@hostname:3306/dbname?hide_auto_increment
-```
-
-**MariaDB:**
-
-```yaml
-# .tbls.yml
-dsn: mariadb://dbuser:dbpass@hostname:3306/dbname
-```
-
-```yaml
-# .tbls.yml
-dsn: maria://dbuser:dbpass@hostname:3306/dbname
+dsn:
+  url: mysql://dbuser:dbpass@hostname:port/dbname
+  # or `my://`
 ```
 
 **SQLite:**
@@ -471,131 +381,73 @@ dsn: sqlite:///path/to/dbname.db
 
 ```yaml
 # .tbls.yml
-dsn: sq:///path/to/dbname.db
+dsn:
+  url: sqlite:///path/to/dbname.db
+  # or `sq://`
+```
+
+**SQL Server:**
+
+```yaml
+# .tbls.yml
+dsn: mssql://dbuser:dbpass@hostname:port/dbname
+```
+
+```yaml
+# .tbls.yml
+dsn:
+  url: mssql://dbuser:dbpass@hostname:port/dbname
+  # or `sqlserver://`
+  # or `ms://`
 ```
 
 **BigQuery:**
 
 ```yaml
 # .tbls.yml
-dsn: bigquery://project-id/dataset-id?creds=/path/to/google_application_credentials.json
+dsn: bigquery://project-id/dataset-id?credentialsFile=/path/to/key.json
 ```
 
 ```yaml
 # .tbls.yml
-dsn: bq://project-id/dataset-id?creds=/path/to/google_application_credentials.json
+dsn:
+  url: bigquery://project-id/dataset-id?credentialsFile=/path/to/key.json
+  # or `bq://`
 ```
 
-To set `GOOGLE_APPLICATION_CREDENTIALS` environment variable, you can use
+**Snowflake:**
 
-1. `export GOOGLE_APPLICATION_CREDENTIALS` or `export GOOGLE_APPLICATION_CREDENTIALS_JSON`
-2. Add query to DSN
-    - `?google_application_credentials=/path/to/client_secrets.json`
-    - `?credentials=/path/to/client_secrets.json`
-    - `?creds=/path/to/client_secrets.json`
-
-Required permissions: `bigquery.datasets.get` `bigquery.tables.get` `bigquery.tables.list`
-
-Also, you can use impersonate service account using environment variables below.
-
-- `GOOGLE_IMPERSONATE_SERVICE_ACCOUNT`: Email of service account
-- `GOOGLE_IMPERSONATE_SERVICE_ACCOUNT_LIFETIME`: You can use impersonate service account within this lifetime. This value must be readable from https://github.com/k1LoW/duration .
-
+```yaml
+# .tbls.yml
+dsn: snowflake://user:pass@account/database/schema?warehouse=warehouse&role=role
+```
 
 **Cloud Spanner:**
 
 ```yaml
 # .tbls.yml
-dsn: spanner://project-id/instance-id/dbname?creds=/path/to/google_application_credentials.json
-```
-
-To set `GOOGLE_APPLICATION_CREDENTIALS` environment variable, you can use
-
-1. `export GOOGLE_APPLICATION_CREDENTIALS` or `export GOOGLE_APPLICATION_CREDENTIALS_JSON`
-2. Add query to DSN
-    - `?google_application_credentials=/path/to/client_secrets.json`
-    - `?credentials=/path/to/client_secrets.json`
-    - `?creds=/path/to/client_secrets.json`
-
-Also, you can use impersonate service account using environment variables below.
-
-- `GOOGLE_IMPERSONATE_SERVICE_ACCOUNT`: Email of service account
-- `GOOGLE_IMPERSONATE_SERVICE_ACCOUNT_LIFETIME`: You can use impersonate service account within this lifetime. This value must be readable from https://github.com/k1LoW/duration .
-
-**Amazon Redshift:**
-
-```yaml
-# .tbls.yml
-dsn: redshift://dbuser:dbpass@hostname:5432/dbname
-```
-
-```yaml
-# .tbls.yml
-dsn: rs://dbuser:dbpass@hostname:5432/dbname
-```
-
-**Microsoft SQL Server:**
-
-```yaml
-# .tbls.yml
-dsn: mssql://DbUser:SQLServer-DbPassw0rd@hostname:1433/testdb
-```
-
-```yaml
-# .tbls.yml
-dsn: sqlserver://DbUser:SQLServer-DbPassw0rd@hostname:1433/testdb
-```
-
-```yaml
-# .tbls.yml
-dsn: ms://DbUser:SQLServer-DbPassw0rd@localhost:1433/testdb
+dsn: spanner://project-id/instance-id/database-id?credentialsFile=/path/to/key.json
 ```
 
 **Amazon DynamoDB:**
 
 ```yaml
 # .tbls.yml
-dsn: dynamodb://us-west-2
+dsn: dynamodb://us-west-2?accessKeyId=XXXXXxxxxxXXXXXXXXX&secretAccessKey=XXXXXxxxxxXXXXXXXXX
 ```
+
+**Amazon Redshift:**
 
 ```yaml
 # .tbls.yml
-dsn: dynamo://ap-northeast-1?aws_access_key_id=XXXXXxxxxxxxXXXXXXX&aws_secret_access_key=XXXXXxxxxxxxXXXXXXX
+dsn: redshift://user:pass@hostname:port/dbname
 ```
-
-To set AWS credentials, you can use
-
-1. [Use default credential provider chain of AWS SDK for Go](https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials)
-2. Add query to DSN
-    - `?aws_access_key_id=XXXXXxxxxxxxXXXXXXX&aws_secret_access_key=XXXXXxxxxxxxXXXXXXX`
-
-**Snowflake (Experimental):**
-
-```yaml
----
-# .tbls.yml
-dsn: snowflake://user:password@myaccount/mydb/myschema
-```
-
-See also: https://pkg.go.dev/github.com/snowflakedb/gosnowflake
 
 **MongoDB:**
 
 ```yaml
 # .tbls.yml
-dsn: mongodb://mongoadmin:secret@localhost:27017/test
-```
-
-```yaml
-# .tbls.yml
-dsn: mongodb://mongoadmin:secret@localhost:27017/test?sampleSize=20
-```
-
-If a field has multiple types, the `multipleFieldType` query can be used to list all the types.
-
-```yaml
-# .tbls.yml
-dsn: mongodb://mongoadmin:secret@localhost:27017/test?sampleSize=20&multipleFieldType=true
+dsn: mongodb://user:pass@hostname:port/dbname
 ```
 
 **ClickHouse:**
@@ -699,175 +551,203 @@ er:
   # ER diagram image format (`png`, `jpg`, `svg`, `mermaid`)
   # Default is `svg`
   format: svg
-  # Add table/column comment to ER diagram
-  # Default is false
-  comment: true
-  # Hide relation definition from ER diagram
-  # Default is false
-  hideDef: true
-  # Show column settings in ER diagram. If this section is not set, all columns will be displayed (default).
+  # ER diagram font
+  # Default is `Arial`
+  font: "Trebuchet MS"
+  # ER diagram font size
+  # Default is `12`
+  fontSize: 14
+  # Show column types on ER diagram
+  # Default is true
+  showColumnTypes: true
+  # Show only related tables on ER diagram
+  showOnlyRelatedTables: false
+  showColumnNullability: false
+  showColumnDefaultValues: false
+  showColumnComments: false
+  hideColumnsWithoutValues: false
+  # Set the ER diagram theme
+  # Options are: 'default', 'forest', 'dark', 'neutral', 'base'
+  # Default is 'default'
+  mermaidTheme: default
+  # Mermaid configuration JSON file path
+  mermaidConfig: path/to/mermaid_config.json
   showColumnTypes:
-    # Show related columns
+    # Show related table column types on ER diagram
     related: true
-    # Show primary key columns
+    # Show primary key table column types on ER diagram
     primary: true
-  # Distance between tables that display relations in the ER
-  # Default is 1
-  distance: 2
-  # ER diagram (png/jpg) font (font name, font file, font path or keyword)
-  # Default is "" (system default)
-  font: M+
 ```
 
-It is also possible to personalize the output by providing your own templates.
-See the [Personalized Templates](#personalized-templates) section below.
+> Notice: `tbls` generate ER diagram images using Graphviz. Please install Graphviz or Docker.
+
+The ER diagram can be rendered in Mermaid format by setting `format: mermaid` in the configuration.
+
+```yaml
+# .tbls.yml
+er:
+  format: mermaid
+```
+
+**Sample ER diagram**
+
+<img src="https://user-images.githubusercontent.com/157344/72404768-9a6da480-378f-11ea-9ca3-84bf64077154.png" width="40%">
+
+<details>
+<summary>Show svg</summary>
+
+<img src="https://raw.githubusercontent.com/k1LoW/tbls/main/sample/postgres/public.svg">
+
+</details>
+
+<details>
+<summary>Show Mermaid ER diagram</summary>
+
+~~~
+erDiagram
+  tables {
+    table text
+    options json
+    table_type text
+    column_value_types json
+    column_value_sizes json
+    schema_name text
+    table_name text
+  }
+  columns {
+    table_name text
+    column_name text
+    column_value_types text
+    column_value_nullable bool
+    column_value_default text
+    column_value_primary bool
+    table text
+    column text
+    options json
+    schema_name text
+  }
+  relations {
+    table_name text
+    column_name text
+    referenced_table_name text
+    referenced_column_name text
+    table text
+    column text
+    referenced_table text
+    referenced_column text
+    options json
+    schema_name text
+  }
+  tables ||--o{ columns : "table"
+  tables ||--o{ relations : "table"
+  columns }o--|| relations : ""
+~~~
+
+</details>
+
+### Filter tables
+
+`include:` and `exclude:` are used to filter tables and functions.
+
+> **Notice:** By default, views are included and functions are excluded.
+
+```yaml
+# .tbls.yml
+# include tables/views/functions
+include:
+  - users
+  - posts
+  - comments
+  - view_*
+  # or
+  - name: log_*
+    labels:
+      - log
+  # or
+  - name: products
+    schema: public
+  # include only tables
+  - name: "function_*"
+    kind: "function"
+```
+
+```yaml
+# .tbls.yml
+# exclude tables/views/functions
+exclude:
+  - logs
+  - users_old
+  - temp_*
+```
+
+`filterOption:` is used to change the behavior of table filtering.
+
+```yaml
+# .tbls.yml
+filterOption:
+  # Enable to use regular expression for include/exclude
+  useRegexpFilter: true
+```
+
+If you want to filter by schema name (PostgreSQL, SQL Server):
+
+```yaml
+# .tbls.yml
+# include `public` schema only
+include:
+  - name: "*"
+    schema: public
+```
 
 ### Lint
 
-`tbls lint` work as linter for database.
+`lint:` work as linter for database.
 
 ```yaml
 # .tbls.yml
 lint:
-  # require table comment
-  requireTableComment:
-    enabled: true
-    # all commented, or all uncommented.
-    allOrNothing: false
-  # require column comment
-  requireColumnComment:
-    enabled: true
-    # all commented, or all uncommented.
-    allOrNothing: true
-    # exclude columns from warnings
-    exclude:
-      - id
-      - created_at
-      - updated_at
-    # exclude tables from warnings
-    excludeTables:
-      - logs
-      - comment_stars
-  # require index comment
-  requireIndexComment:
-    enabled: true
-    # all commented, or all uncommented.
-    allOrNothing: false
-    # exclude indexes from warnings
-    exclude:
-      - user_id_idx
-    # exclude tables from warnings
-    excludeTables:
-      - logs
-      - comment_stars
-  # require constraint comment
-  requireConstraintComment:
-    enabled: true
-    # all commented, or all uncommented.
-    allOrNothing: false
-    # exclude constrains from warnings
-    exclude:
-      - unique_user_name
-    # exclude tables from warnings
-    excludeTables:
-      - logs
-      - comment_stars
-  # require trigger comment
-  requireTriggerComment:
-    enabled: true
-    # all commented, or all uncommented.
-    allOrNothing: false
-    # exclude triggers from warnings
-    exclude:
-      - update_count
-    # exclude tables from warnings
-    excludeTables:
-      - logs
-      - comment_stars
-  # require table labels
-  requireTableLabels:
-    enabled: true
-    # all commented, or all uncommented.
-    allOrNothing: false
-    # exclude tables from warnings
-    exclude:
-      - logs
-  # find a table that has no relation
-  unrelatedTable:
-    enabled: true
-    # all related, or all unrelated.
-    allOrNothing: true
-    # exclude tables from warnings
-    exclude:
-      - logs
-  # check max column count
-  columnCount:
-    enabled: true
-    max: 10
-    # exclude tables from warnings
-    exclude:
-      - user_options
-  # require columns
-  requireColumns:
-    enabled: true
-    columns:
-      -
-        name: created
-      -
-        name: updated
-        exclude:
-          - logs
-          - CamelizeTable
-  # check duplicate relations
+  require:
+    tableComment:
+      enabled: true
+      exclude:
+        - logs
+        - comment_*
+    columnComment:
+      enabled: true
+      exclude:
+        - id
+        - created_at
+        - updated_at
+  columnType:
+    int:
+      enabled: true
+    varchar:
+      enabled: true
   duplicateRelations:
     enabled: true
-  # check if the foreign key columns have an index
   requireForeignKeyIndex:
     enabled: true
+  unrelatedTable:
+    enabled: true
     exclude:
-      - comments.user_id
-  # checks if labels are in BigQuery style (https://cloud.google.com/resource-manager/docs/creating-managing-labels#requirements)
+      - logs
+      - comment_*
   labelStyleBigQuery:
     enabled: true
-    exclude:
-      - schema_migrations
-  # checks if tables are included in at least one viewpoint
-  requireViewpoints: 
-    enabled: true
-    exclude:
-      - schema_migrations
 ```
 
-### Filter tables
+Rules provided:
 
-![filter tables](img/filter-tables.png)
-
-`include:` and `exclude:` are used to filter target tables from `tbls *`.
-
-```yaml
-# .tbls.yml
-include:
-  - some_prefix_*
-exclude:
-  - some_prefix_logs
-  - CamelizeTable
-```
-
-`lintExclude:` is used to exclude tables from `tbls lint`.
-
-```yaml
-# .tbls.yml
-lintExclude:
-  - CamelizeTable
-```
-
-#### Filter logic
-
-1. Add tables/functions from include
-2. Remove tables/functions from exclude
-    - Check for include/exclude overlaps
-    - If include is more specific than exclude (i.e. `schema.MyTable` > `schema.*` or `schema.MyT*` > `schema.*`), include the table(s)/function(s). If include is equally or less specific than exclude, exclude wins.
-3. Result
+- `require.tableComment`: Require table comments
+- `require.columnComment`: Require column comments
+- `require.indexComment`: Require index comments
+- `require.relationName`: Require relation names
+- `columnType.int`: Check for integer column types
+- `columnType.varchar`: Check for varchar column types
+- `duplicateRelations`: Detect duplicate relations
+- `requireForeignKeyIndex`: Require foreign key indexes
+- `unrelatedTable`: Detect unrelated tables
+- `labelStyleBigQuery`: Check for BigQuery label style
 
 ### Comments
 
@@ -914,6 +794,161 @@ comments:
       update_posts_updated: Update updated when posts update
 ```
 
+### Comment Parsing and Logical Names
+
+`tbls` can automatically parse database comments to extract logical names and clean descriptions using a configurable separator character. This feature helps create more readable documentation by separating business logic names from technical descriptions.
+
+#### Configuration
+
+```yaml
+# .tbls.yml
+comment:
+  # Set the separator character to split logical names from descriptions
+  # Default: "" (disabled)
+  separator: "|"
+```
+
+#### How it works
+
+When a separator is configured, `tbls` will parse comments in the following format:
+
+```
+LogicalName|Description
+```
+
+**Example:**
+
+Database comment: `"User ID|System-wide unique identifier for users"`
+
+Result:
+- **Logical Name**: `User ID`
+- **Clean Comment**: `System-wide unique identifier for users`
+
+#### Benefits
+
+- **Bilingual Support**: Perfect for international projects where logical names are in local language and descriptions in English
+- **Better Documentation**: Cleaner separation between what a field represents (logical name) and how it works (description)
+- **Consistent Formatting**: Automatic parsing ensures consistent documentation format
+
+#### Usage Examples
+
+**PostgreSQL:**
+```sql
+COMMENT ON COLUMN users.id IS 'ユーザーID|System-wide unique identifier for users';
+COMMENT ON TABLE users IS 'ユーザーテーブル|Stores user account information';
+```
+
+**MySQL:**
+```sql
+CREATE TABLE users (
+  id INT PRIMARY KEY COMMENT 'ユーザーID|System-wide unique identifier for users',
+  name VARCHAR(100) COMMENT 'ユーザー名|Display name for the user'
+);
+```
+
+### Markdown Output Customization
+
+`tbls` provides powerful customization options for Markdown output, allowing you to control column ordering, field aliases, and logical name display for different database objects.
+
+#### Configuration Structure
+
+```yaml
+# .tbls.yml
+markdown:
+  # Database-level customization
+  database:
+    show_logical_name: true
+    order: ["name", "logical_name", "comment"]
+    aliases:
+      name: "Database Name"
+      logical_name: "Business Name"
+      comment: "Description"
+
+  # Table customization
+  tables:
+    show_logical_name: true
+    order: ["name", "logical_name", "comment", "type"]
+    aliases:
+      name: "Table Name"
+      logical_name: "Business Name"
+      comment: "Description"
+      type: "Type"
+    # Table-specific overrides
+    specific:
+      users:
+        show_logical_name: true
+        aliases:
+          name: "User Table"
+
+  # Column customization
+  columns:
+    show_logical_name: true
+    order: ["name", "logical_name", "type", "nullable", "default", "comment"]
+    aliases:
+      name: "Column Name"
+      logical_name: "Business Name"
+      type: "Data Type"
+      nullable: "Nullable"
+      default: "Default Value"
+      comment: "Description"
+    # Table-specific column settings
+    specific:
+      users:
+        order: ["logical_name", "name", "type", "nullable", "comment"]
+
+  # Other object types
+  views:
+    show_logical_name: true
+    # ... similar configuration
+
+  indexes:
+    show_logical_name: true
+    # ... similar configuration
+
+  constraints:
+    show_logical_name: true
+    # ... similar configuration
+
+  functions:
+    show_logical_name: true
+    # ... similar configuration
+```
+
+#### Features
+
+**1. Column Ordering**
+- Customize the order of columns in Markdown tables
+- Different orders for different object types
+- Table-specific column ordering overrides
+
+**2. Field Aliases**
+- Rename column headers to more user-friendly names
+- Support for multiple languages (e.g., English headers → Japanese headers)
+- Consistent terminology across documentation
+
+**3. Logical Name Display**
+- Show/hide logical names extracted from comments
+- Logical names appear as separate columns when enabled
+- Fallback to physical names when logical names are not available
+
+**4. Object-Specific Customization**
+- Global settings for each object type (tables, columns, views, etc.)
+- Specific overrides for individual tables or objects
+- Hierarchical configuration (global → object type → specific)
+
+#### Example Output
+
+With the above configuration, a table documentation might look like:
+
+| Table Name | Business Name | Description | Type |
+|------------|---------------|-------------|------|
+| users      | ユーザーテーブル | Stores user information | BASE TABLE |
+
+| Column Name | Business Name | Data Type | Nullable | Default Value | Description |
+|-------------|---------------|-----------|----------|---------------|-------------|
+| id          | ユーザーID    | int       | NO       | NULL          | Unique user identifier |
+| name        | ユーザー名    | varchar(100) | YES   | NULL          | User display name |
+
 ### Relations
 
 `relations:` is used to add or override table relation to database document without `FOREIGN KEY`.
@@ -930,7 +965,6 @@ relations:
     parentColumns:
       - id
     # Relation definition
-    # Default is `Additional Relation`
     def: logs->users
   -
     table: logs
@@ -939,265 +973,325 @@ relations:
     parentTable: posts
     parentColumns:
       - id
-  -
-    table: logs
-    columns:
-      - comment_id
-    parentTable: comments
-    parentColumns:
-      - id
-  -
-    table: logs
-    columns:
-      - comment_star_id
-    parentTable: comment_stars
-    parentColumns:
-      - id
-```
-
-![img](sample/mysql/logs.svg)
-
-
-#### Override relations
-
-If you want to override an existing relation, set the `override:` to `true`.
-
-```yaml
-relations:
-  -
-    table: posts
-    columns:
-      - user_id
-    cardinality: zero or one
-    parentTable: users
-    parentColumns:
-      - id
-    parentCardinality: one or more
-    override: true
-    def: posts->users
-```
-
-#### Automatically detect relations
-
-`detectVirtualRelations:` if enabled, automatically detect relations from table and column names.
-
-```yaml
-detectVirtualRelations:
-  enabled: true
-  strategy: default
-```
-
-##### Supported strategies
-
-| strategy name                | relation from        | relation to     |
-| :--                          | :--                  | :--             |
-| `default`                    | `some_table.user_id` | `users.id`      |
-| `singularTableName`          | `some_table.user_id` | `user.id`       |
-| `identical`                  | `some_table.user_id` | `users.user_id` |
-| `identicalSingularTableName` | `some_table.user_id` | `user.user_id`  |
-
-
-### Dictionary
-
-`dict:` is used to replace title/table header of database document
-
-```yaml
-# .tbls.yml
----
-dict:
-  Tables: テーブル一覧
-  Description: 概要
-  Columns: カラム一覧
-  Indexes: INDEX一覧
-  Constraints: 制約一覧
-  Triggers: トリガー
-  Relations: ER図
-  Name: 名前
-  Comment: コメント
-  Type: タイプ
-  Default: デフォルト値
-  Children: 子テーブル
-  Parents: 親テーブル
-  Definition: 定義
-  Table Definition: テーブル定義
-```
-
-### Personalized Templates
-
-It is possible to provide your own templates to personalize the documentation generated by `tbls` by adding a `templates:` section to your configuration.
-For example:
-
-```yaml
-templates:
-  dot:
-    schema: 'templates/schema.dot.tmpl'
-    table: 'templates/table.dot.tmpl'
-  puml:
-    schema: 'templates/schema.puml.tmpl'
-    table: 'templates/table.puml.tmpl'
-  md:
-    index: 'templates/index.md.tmpl'
-    table: 'templates/table.md.tmpl'
-```
-
-A good starting point to design your own template is to modify a copy the default ones for [Dot](output/dot/templates), [PlantUML](output/plantuml/templates) and [markdown](output/md/templates).
-
-### Required Version
-
-The `requiredVersion` setting defines a version constraint string. This defines which version of tbls can be used in the configuration.
-
-```yaml
-requiredVersion: '>= 1.42, < 2'
-```
-
-## Expand environment variables
-
-All configuration values can be set by expanding the environment variables.
-
-```yaml
-# .tbls.yml
-dsn: my://${MYSQL_USER}:${MYSQL_PASSWORD}@hostname:3306/${MYSQL_DATABASE}
+    def: logs->posts
 ```
 
 ### Viewpoints
-Viewpoints of your database schema based on concerns of your domain and add description to them.
-You can also define groups of tables within viewpoints.
+
+`viewpoints:` is used to generate additional documents (add/change ER diagram, table list).
 
 ```yaml
-# .tbls.yml
-
 viewpoints:
   -
-    name: comments on post
-    desc: Users can comment on each post multiple times and put a star on each comment.
+    name: users
+    desc: Users and posts
     tables:
       - users
       - posts
       - comments
-      - comment_stars
-      - post_comments
-      - post_comment_stars
-    groups:
-      -
-        name: Comments
-        desc: Tables about comments
-        tables:
-          - posts
-          - comments
-          - post_comments
-      -
-        name: Stars
-        desc: Tables about stars
-        tables:
-          - comment_stars
-          - post_comment_stars
+    # Relations viewpoint
+    relations:
+      - table: posts
+        columns:
+          - user_id
+        parentTable: users
+        parentColumns:
+          - id
+        def: posts->users
+  -
+    name: payment
+    desc: Payment
+    tables:
+      - name: orders
+        comment: Order table
+      - payments
+    labels:
+      - payment
+      - public
+```
 
+### Dictionary
+
+`dict:` is used to generate additional document with merged table and column info.
+
+```yaml
+# .tbls.yml
+dict:
+  -
+    name: analytics
+    desc: Analytics tables list
+    tables:
+      - analytics_*
+    labels:
+      - analytics
+```
+
+**Generated additional document**
+
+![sample dictionary](https://github.com/user-attachments/assets/dcf64e8c-c264-4ad9-8b2b-7eb6c5b2f4be)
+
+### Personalized Templates
+
+`tbls` uses Go templates to generate Markdown documents. You can create personalized templates.
+
+See [here](output/md/templates) for the default templates.
+
+```yaml
+# .tbls.yml
+templates:
+  md:
+    index: path/to/index.md.tmpl
+    table: path/to/table.md.tmpl
+```
+
+### Required Version
+
+The `requiredVersion` can be used to set the minimum required version of tbls.
+
+```yaml
+# .tbls.yml
+requiredVersion: ">= 1.42.0"
+```
+
+## Expand environment variables
+
+`tbls` expand environment variables using `${VAR}` in `.tbls.yml`
+
+```yaml
+# .tbls.yml
+dsn: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DATABASE}
+name: ${POSTGRES_DATABASE}
 ```
 
 ## Output formats
 
-`tbls out` output in various formats.
-
-**Markdown:**
+`tbls` can output in various formats by using `tbls out` command.
 
 ```console
-$ tbls out -t md -o schema.md
+$ tbls out [format]
 ```
 
-**DOT:**
+### Markdown
 
 ```console
-$ tbls out -t dot -o schema.dot
+$ tbls out md
 ```
 
-**PlantUML:**
+**Output directory structure**
 
 ```console
-$ tbls out -t plantuml -o schema.puml
+docs/ # `docPath:`
+├── README.md # Database
+├── users.md # Table
+└── posts.md
 ```
 
-**Mermaid:**
+### DOT
 
 ```console
-$ tbls out -t mermaid -o schema.mmd
+$ tbls out dot
 ```
 
-**Image (svg, png, jpg):**
+### PlantUML
 
 ```console
-$ tbls out -t svg --table users --distance 2 -o users.svg
+$ tbls out plantuml
 ```
 
-**JSON:**
+The PlantUML file can be converted to PNG format.
 
 ```console
-$ tbls out -t json -o schema.json
+$ cat dbdoc/schema.puml | docker run --rm -i think/plantuml -tpng > schema.png
 ```
 
-> **Tips:** `tbls doc` can load `schema.json` as DSN.
->
-> ```console
-> $ tbls doc json:///path/to/schema.json
-> ```
+**Schema PNG**
 
-**YAML:**
+<img src="https://user-images.githubusercontent.com/157344/62372115-a7d8c080-b571-11e9-9431-a8a2b2bd7c64.png" alt="schema.png" width="100%">
+
+### JSON
 
 ```console
-$ tbls out -t yaml -o schema.yaml
+$ tbls out json
 ```
 
-**Excel:**
+### YAML
 
 ```console
-$ tbls out -t xlsx -o schema.xlsx
+$ tbls out yaml
 ```
 
-**.tbls.yml:**
+### XML
 
 ```console
-$ tbls out -t config -o .tbls.new.yml
+$ tbls out xml
+```
+
+### XLSX
+
+```console
+$ tbls out xlsx
+```
+
+### Mermaid
+
+```console
+$ tbls out mermaid
 ```
 
 ## Command arguments
 
-tbls subcommands (`doc`,`diff`, etc) accepts arguments and options
+### Common arguments
+
+- `--config` (`-c`): config file path.
+- `--dsn` (`-d`): data source name.
+- `--schema` (`-s`): schema name.
+- `--when`: when to run `tbls`.
+- `--debug`: debug mode.
+
+### `tbls doc`
+
+Generate database document.
+
+#### Arguments
+
+- `--force`: force-run (skip asking)
+- `--rm-dist`: remove files in docPath before generating documents
+- `--adjust` (`-a`): adjust column width
+- `--sort`: sort
+- `--number`: add number to table rows
+- `--ER` (`-j`): also generate ER diagram
+- `--add-relation-from-er`: add relations from ER diagram
+- `--without-er`: generate without ER diagram
+
+### `tbls diff`
+
+Show diff between database and generated document.
+
+#### Arguments
+
+- `--with-color`: show colored diff
+- `--unique`: show unique tables only
+
+If you run `tbls diff path/to/docPath.md`, it only outputs the diff for the table of the specified file.
+
+### `tbls lint`
+
+Lint the database.
+
+#### Arguments
+
+- `--format`: lint rule format
+- `--fix`: fix lint (beta)
+
+### `tbls coverage`
+
+Show document coverage.
+
+#### Arguments
+
+- `--format`: output format for coverage (default is table)
+
+### `tbls out`
+
+Output in various formats.
+
+#### Arguments
+
+- `--template` (`-t`): template type
+- `--output` (`-o`): output file path
+
+### `tbls md2dot`
+
+Convert Markdown to DOT.
+
+#### Arguments
+
+- `--output` (`-o`): output file path
+
+### `tbls completion`
+
+Generate shell completion.
 
 ```console
-$ tbls doc my://root:mypass@localhost:3306/testdb doc/schema
+$ source <(tbls completion bash)
 ```
-
-You can check available arguments and options using `tbls help [COMMAND]`.
 
 ```console
-$ tbls help doc
-'tbls doc' analyzes a database and generate document in GitHub Friendly Markdown format.
-
-Usage:
-  tbls doc [DSN] [DOC_PATH] [flags]
-
-Flags:
-  -j, --adjust-table       adjust column width of table
-  -b, --base-url string    base url for links
-  -c, --config string      config file path
-  -t, --er-format string   ER diagrams output format (png, svg, jpg, mermaid). default: svg
-  -f, --force              force
-  -h, --help               help for doc
-      --rm-dist            remove files in docPath before generating documents
-      --sort               sort
-      --when string        command execute condition
-      --without-er         no generate ER diagrams
+$ source <(tbls completion zsh)
 ```
 
-## Output Schema data
+```powershell
+PS > tbls completion powershell | Out-String | Invoke-Expression
+```
 
-`tbls doc` also output schema data (`schema.json`) to same directory as the generated schema document.
+```console
+$ tbls completion fish | source
+```
 
-To disable output of schema data, set `disableOutputSchema:` to `true` in `.tbls.yml` file.
+### `tbls version`
+
+Print the version number.
+
+### `tbls help`
+
+Show help.
 
 ## Environment variables
 
-tbls accepts environment variables `TBLS_DSN` and `TBLS_DOC_PATH`
+tbls supports environment variables.
+
+### `TBLS_DSN`
+
+You can use the environment variable `TBLS_DSN` instead of the command argument `--dsn`.
 
 ```console
-$ env TBLS_DSN=my://root:mypass@localhost:3306/testdb TBLS_DOC_PATH=doc/schema tbls doc
+$ env TBLS_DSN=my://dbuser:dbpass@localhost:3306/myschema tbls doc
+```
+
+### `TBLS_DOC_PATH`
+
+You can use the environment variable `TBLS_DOC_PATH` instead of the `.tbls.yml` setting `docPath`.
+
+```console
+$ env TBLS_DOC_PATH=./custom-doc-path tbls doc
+```
+
+### `TBLS_CONFIG_PATH`
+
+You can use the environment variable `TBLS_CONFIG_PATH` instead of the command argument `--config`.
+
+```console
+$ env TBLS_CONFIG_PATH=./custom.tbls.yml tbls doc
+```
+
+### `TBLS_WHEN`
+
+You can use the environment variable `TBLS_WHEN` instead of the command argument `--when`.
+
+```console
+$ env TBLS_WHEN="command arg" tbls doc
+```
+
+### `TBLS_DEBUG`
+
+You can use the environment variable `TBLS_DEBUG` instead of the command argument `--debug`.
+
+```console
+$ env TBLS_DEBUG=true tbls doc
+```
+
+## External subcommands
+
+`tbls` supports external subcommands.
+
+If an executable with the pattern `tbls-*` is on the PATH, `tbls` will treat it as a subcommand.
+
+```console
+$ tbls subcommand
+```
+
+For example, you can use [tbls-ask](https://github.com/k1LoW/tbls-ask) by installing it on your PATH.
+
+```console
+$ tbls ask "What is the average age of users?"
 ```
