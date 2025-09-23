@@ -563,6 +563,17 @@ func (c *Config) ModifySchema(s *schema.Schema) error {
 		}
 	}
 
+
+	// Apply logical name parsing if comment separator is configured
+	if c.Comment != nil && c.Comment.Separator != "" {
+		processor := schema.NewLogicalNameProcessor(c.Comment.Separator)
+		if err := processor.ProcessSchema(s); err != nil {
+			// Log warning but continue processing to avoid breaking existing functionality
+			// This ensures backward compatibility
+			fmt.Printf("Warning: Failed to process logical names: %v\n", err)
+		}
+	}
+
 	return nil
 }
 
