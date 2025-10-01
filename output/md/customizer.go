@@ -54,7 +54,7 @@ func (c *DefaultMarkdownCustomizer) CustomizeTableOutput(table *schema.Table, co
 	customizedColumns := c.CustomizeColumnOutput(table.Columns, config)
 
 	// Get display order for table fields
-	defaultOrder := []string{"name", "logical_name", "comment", "type"}
+	defaultOrder := []string{"name", "LogicalName", "comment", "type"}
 	var displayOrder []string
 	if config != nil && len(config.Order) > 0 {
 		displayOrder = c.GetDisplayOrder(defaultOrder, config.Order)
@@ -131,30 +131,12 @@ func (c *DefaultMarkdownCustomizer) ApplyAliases(fieldName string, aliases map[s
 }
 
 // GetDisplayOrder returns the display order based on default and configuration order.
-// If configOrder is provided and not empty, it takes precedence over defaultOrder.
-// If configOrder contains fields not in defaultOrder, they are appended.
-// If defaultOrder contains fields not in configOrder, they are appended at the end.
+// If configOrder is provided and not empty, it returns only the specified fields in that order.
+// If configOrder is empty, it returns the defaultOrder.
 func (c *DefaultMarkdownCustomizer) GetDisplayOrder(defaultOrder []string, configOrder []string) []string {
 	if len(configOrder) == 0 {
 		return defaultOrder
 	}
-
-	// Create a set of configured fields for quick lookup
-	configSet := make(map[string]bool)
-	for _, field := range configOrder {
-		configSet[field] = true
-	}
-
-	// Start with the configured order
-	result := make([]string, 0, len(defaultOrder)+len(configOrder))
-	result = append(result, configOrder...)
-
-	// Add any default fields that weren't in the config order
-	for _, field := range defaultOrder {
-		if !configSet[field] {
-			result = append(result, field)
-		}
-	}
-
-	return result
+	// When configOrder is specified, return only those fields
+	return configOrder
 }

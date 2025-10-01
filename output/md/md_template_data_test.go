@@ -73,13 +73,14 @@ func TestMd_makeTableTemplateDataWithCustomization(t *testing.T) {
 					Tables: &config.TableCustomConfig{
 						ObjectCustomConfig: &config.ObjectCustomConfig{
 							ShowLogicalName: true,
+							Order:           []string{"name", "logical_name", "type", "default", "nullable", "children", "parents", "comment"},
 						},
 					},
 				},
 			},
 			wantColumns: 8, // Name, Logical Name, Type, Default, Nullable, Children, Parents, Comment
 			wantHeaders: []string{"Name", "Logical Name", "Type", "Default", "Nullable", "Children", "Parents", "Comment"},
-			description: "Should add logical name column when enabled",
+			description: "Should add logical name column when order explicitly includes logical_name",
 		},
 		{
 			name: "with column aliases",
@@ -100,7 +101,7 @@ func TestMd_makeTableTemplateDataWithCustomization(t *testing.T) {
 					Adjust: false,
 				},
 				Markdown: &config.MarkdownConfig{
-					Tables: &config.TableCustomConfig{
+					Columns: &config.ColumnCustomConfig{
 						ObjectCustomConfig: &config.ObjectCustomConfig{
 							Aliases: map[string]string{
 								"Name":    "物理名",
@@ -167,6 +168,7 @@ func TestMd_makeTableTemplateDataWithCustomization(t *testing.T) {
 					Tables: &config.TableCustomConfig{
 						ObjectCustomConfig: &config.ObjectCustomConfig{
 							ShowLogicalName: true,
+							Order:           []string{"name", "logical_name", "type", "default", "nullable", "children", "parents", "comment"},
 							Aliases: map[string]string{
 								"Name":         "物理名",
 								"Logical Name": "論理名",
@@ -178,7 +180,7 @@ func TestMd_makeTableTemplateDataWithCustomization(t *testing.T) {
 			},
 			wantColumns: 8,
 			wantHeaders: []string{"物理名", "論理名", "型", "Default", "Nullable", "Children", "Parents", "Comment"},
-			description: "Should support both logical name and aliases",
+			description: "Should support both logical name and aliases when order includes logical_name",
 		},
 		{
 			name: "with table-specific configuration",
@@ -206,6 +208,7 @@ func TestMd_makeTableTemplateDataWithCustomization(t *testing.T) {
 						Specific: map[string]*config.ObjectCustomConfig{
 							"users": {
 								ShowLogicalName: true,
+								Order:           []string{"name", "logical_name", "type", "default", "nullable", "children", "parents", "comment"},
 								Aliases: map[string]string{
 									"Name":         "物理名",
 									"Logical Name": "論理名",
@@ -419,15 +422,15 @@ func TestMd_ProcessTemplateDataWithCustomization(t *testing.T) {
 			Adjust: false,
 		},
 		Markdown: &config.MarkdownConfig{
-			Tables: &config.TableCustomConfig{
+			Columns: &config.ColumnCustomConfig{
 				ObjectCustomConfig: &config.ObjectCustomConfig{
 					ShowLogicalName: true,
-					Order:           []string{"Name", "Logical Name", "Type", "Comment"},
+					Order:           []string{"Name", "LogicalName", "Type", "Comment"},
 					Aliases: map[string]string{
-						"Name":         "カラム名",
-						"Logical Name": "論理名",
-						"Type":         "データ型",
-						"Comment":      "説明",
+						"Name":        "カラム名",
+						"LogicalName": "論理名",
+						"Type":        "データ型",
+						"Comment":     "説明",
 					},
 				},
 			},
@@ -444,10 +447,11 @@ func TestMd_ProcessTemplateDataWithCustomization(t *testing.T) {
 	}
 
 	headerRow := columnsData[0]
-	expectedHeaders := []string{"カラム名", "論理名", "データ型", "説明", "Default", "Nullable", "Children", "Parents"}
+	// When Order is explicitly specified, only those fields are shown (line 428: Order: []string{"Name", "Logical Name", "Type", "Comment"})
+	expectedHeaders := []string{"カラム名", "論理名", "データ型", "説明"}
 
 	if len(headerRow) != len(expectedHeaders) {
-		t.Fatalf("Expected %d headers, got %d", len(expectedHeaders), len(headerRow))
+		t.Fatalf("Expected %d headers, got %d (headers: %v)", len(expectedHeaders), len(headerRow), headerRow)
 	}
 
 	for i, expected := range expectedHeaders {
@@ -466,4 +470,200 @@ func TestMd_ProcessTemplateDataWithCustomization(t *testing.T) {
 	}
 
 	t.Log("Template data processing test passed")
+}
+
+// TestMd_ConstraintsWithExplicitLogicalName tests constraints with explicit LogicalName in order
+func TestMd_ConstraintsWithExplicitLogicalName(t *testing.T) {
+	// Create test table with constraints
+	table := &schema.Table{
+		Name: "test_table",
+		Constraints: []*schema.Constraint{
+			{
+				Name:        "users_pkey",
+				Type:        "PRIMARY KEY",
+				Def:         "PRIMARY KEY (id)",
+				Comment:     "Primary key for user identification",
+				LogicalName: "ユーザーID主キー",
+			},
+		},
+	}
+
+	cfg := &config.Config{
+		Format: config.Format{
+			Number: false,
+			Adjust: false,
+		},
+		Markdown: &config.MarkdownConfig{
+			Constraints: &config.ObjectCustomConfig{
+				ShowLogicalName: true,
+				Order:           []string{"Name", "LogicalName", "Type", "Definition", "Comment"},
+				Aliases: map[string]string{
+					"Name":        "制約名",
+					"LogicalName": "論理名",
+					"Type":        "種類",
+					"Definition":  "定義",
+					"Comment":     "説明",
+				},
+			},
+		},
+	}
+	md := New(cfg)
+
+	// Test constraints with explicit LogicalName
+	constraintsData := md.constraintsData(table, cfg.Markdown.Constraints)
+
+	t.Logf("Constraints data rows: %d", len(constraintsData))
+	for i, row := range constraintsData {
+		t.Logf("Row %d: %v", i, row)
+	}
+
+	if len(constraintsData) < 3 {
+		t.Fatal("constraintsData should have at least header, separator, and data row")
+	}
+
+	// Check header
+	header := constraintsData[0]
+	expectedHeader := []string{"制約名", "論理名", "種類", "定義", "説明"}
+	if len(header) != len(expectedHeader) {
+		t.Errorf("Header length: expected %d, got %d", len(expectedHeader), len(header))
+		return
+	}
+	for i, exp := range expectedHeader {
+		if header[i] != exp {
+			t.Errorf("Header[%d]: expected %q, got %q", i, exp, header[i])
+		}
+	}
+
+	// Check data row
+	dataRow := constraintsData[2]
+	if len(dataRow) != 5 {
+		t.Errorf("Data row should have 5 columns, got %d", len(dataRow))
+		return
+	}
+
+	// Check that all fields are populated
+	if dataRow[0] == "" {
+		t.Error("Name should not be empty")
+	}
+	if dataRow[1] == "" {
+		t.Error("LogicalName should not be empty")
+	}
+	if dataRow[2] == "" {
+		t.Error("Type should not be empty")
+	}
+	if dataRow[3] == "" {
+		t.Error("Definition should not be empty")
+	}
+
+	t.Logf("Name: %q", dataRow[0])
+	t.Logf("LogicalName: %q", dataRow[1])
+	t.Logf("Type: %q", dataRow[2])
+	t.Logf("Definition: %q", dataRow[3])
+	t.Logf("Comment: %q", dataRow[4])
+}
+
+// TestMd_ConstraintsWithEmptyLogicalName tests constraints with empty LogicalName (real PostgreSQL scenario)
+func TestMd_ConstraintsWithEmptyLogicalName(t *testing.T) {
+	// Simulate real PostgreSQL scenario: LogicalName is empty, Comment is empty
+	// GetLogicalNameOrFallback() should return Name
+	table := &schema.Table{
+		Name: "test_table",
+		Constraints: []*schema.Constraint{
+			{
+				Name:        "users_pkey",
+				Type:        "PRIMARY KEY",
+				Def:         "PRIMARY KEY (id)",
+				Comment:     "",  // Empty comment (real scenario)
+				LogicalName: "",  // Empty (real scenario)
+			},
+		},
+	}
+
+	cfg := &config.Config{
+		Format: config.Format{
+			Number: false,
+			Adjust: false,
+		},
+		Markdown: &config.MarkdownConfig{
+			Constraints: &config.ObjectCustomConfig{
+				ShowLogicalName: true,
+				Order:           []string{"Name", "LogicalName", "Type", "Definition", "Comment"},
+				Aliases: map[string]string{
+					"Name":        "制約名",
+					"LogicalName": "論理名",
+					"Type":        "種類",
+					"Definition":  "定義",
+					"Comment":     "説明",
+				},
+			},
+		},
+	}
+
+	// Verify GetLogicalNameOrFallback returns Name when LogicalName is empty
+	constraint := table.Constraints[0]
+	logicalName := constraint.GetLogicalNameOrFallback()
+	if logicalName != "users_pkey" {
+		t.Errorf("GetLogicalNameOrFallback() should return Name when LogicalName is empty, got %q", logicalName)
+	}
+
+	md := New(cfg)
+
+	// Test constraints with empty LogicalName
+	constraintsData := md.constraintsData(table, cfg.Markdown.Constraints)
+
+	t.Logf("Constraints data rows: %d", len(constraintsData))
+	for i, row := range constraintsData {
+		t.Logf("Row %d: %v", i, row)
+	}
+
+	if len(constraintsData) < 3 {
+		t.Fatal("constraintsData should have at least header, separator, and data row")
+	}
+
+	// Check header
+	header := constraintsData[0]
+	expectedHeader := []string{"制約名", "論理名", "種類", "定義", "説明"}
+	if len(header) != len(expectedHeader) {
+		t.Errorf("Header length: expected %d, got %d", len(expectedHeader), len(header))
+		return
+	}
+	for i, exp := range expectedHeader {
+		if header[i] != exp {
+			t.Errorf("Header[%d]: expected %q, got %q", i, exp, header[i])
+		}
+	}
+
+	// Check data row
+	dataRow := constraintsData[2]
+	if len(dataRow) != 5 {
+		t.Errorf("Data row should have 5 columns, got %d: %v", len(dataRow), dataRow)
+		return
+	}
+
+	// Check that Name is populated
+	if dataRow[0] == "" {
+		t.Error("Name should not be empty")
+	}
+
+	// CRITICAL: Check that LogicalName is populated with Name (fallback)
+	if dataRow[1] == "" {
+		t.Error("LogicalName should not be empty (should fallback to Name)")
+	}
+	if dataRow[1] != "users_pkey" {
+		t.Errorf("LogicalName should be 'users_pkey' (fallback), got %q", dataRow[1])
+	}
+
+	// Check other fields
+	if dataRow[2] == "" {
+		t.Error("Type should not be empty")
+	}
+	if dataRow[3] == "" {
+		t.Error("Definition should not be empty")
+	}
+
+	t.Logf("Name: %q", dataRow[0])
+	t.Logf("LogicalName: %q (should be 'users_pkey')", dataRow[1])
+	t.Logf("Type: %q", dataRow[2])
+	t.Logf("Definition: %q", dataRow[3])
+	t.Logf("Comment: %q", dataRow[4])
 }

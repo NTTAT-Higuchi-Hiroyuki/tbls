@@ -96,7 +96,7 @@ func TestDefaultMarkdownCustomizer_CustomizeTableOutput(t *testing.T) {
 						Show:        true,
 					},
 				},
-				Order:   []string{"name", "logical_name", "comment", "type"},
+				Order:   []string{"name", "LogicalName", "comment", "type"},
 				Aliases: map[string]string{},
 			},
 		},
@@ -117,7 +117,7 @@ func TestDefaultMarkdownCustomizer_CustomizeTableOutput(t *testing.T) {
 			},
 			config: &config.ObjectCustomConfig{
 				ShowLogicalName: true,
-				Order:           []string{"logical_name", "name", "type", "comment"},
+				Order:           []string{"LogicalName", "name", "type", "comment"},
 				Aliases: map[string]string{
 					"product_id": "商品ID",
 					"name":       "名前",
@@ -150,7 +150,7 @@ func TestDefaultMarkdownCustomizer_CustomizeTableOutput(t *testing.T) {
 						Show:        true,
 					},
 				},
-				Order: []string{"logical_name", "name", "type", "comment"},
+				Order: []string{"LogicalName", "name", "type", "comment"},
 				Aliases: map[string]string{
 					"product_id": "商品ID",
 					"name":       "名前",
@@ -356,26 +356,32 @@ func TestDefaultMarkdownCustomizer_GetDisplayOrder(t *testing.T) {
 			name:         "config order subset of default",
 			defaultOrder: []string{"name", "type", "comment", "nullable"},
 			configOrder:  []string{"type", "name"},
-			expected:     []string{"type", "name", "comment", "nullable"},
+			expected:     []string{"type", "name"},
 		},
 		{
 			name:         "config order with extra fields",
 			defaultOrder: []string{"name", "type"},
 			configOrder:  []string{"custom_field", "name", "extra"},
-			expected:     []string{"custom_field", "name", "extra", "type"},
+			expected:     []string{"custom_field", "name", "extra"},
 		},
 		{
 			name:         "completely different orders",
 			defaultOrder: []string{"a", "b", "c"},
 			configOrder:  []string{"x", "y", "z"},
-			expected:     []string{"x", "y", "z", "a", "b", "c"},
+			expected:     []string{"x", "y", "z"},
 		},
 		{
 			name:         "overlapping orders",
 			defaultOrder: []string{"name", "type", "comment", "nullable"},
 			configOrder:  []string{"comment", "name", "custom"},
-			expected:     []string{"comment", "name", "custom", "type", "nullable"},
+			expected:     []string{"comment", "name", "custom"},
 		},
+	{
+		name:         "order specifies only subset - should not include defaults",
+		defaultOrder: []string{"Name", "Type", "Default", "Nullable", "Comment"},
+		configOrder:  []string{"Name", "Type"},
+		expected:     []string{"Name", "Type"},
+	},
 	}
 
 	for _, tt := range tests {

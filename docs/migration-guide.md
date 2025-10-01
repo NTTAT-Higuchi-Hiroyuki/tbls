@@ -8,6 +8,17 @@ The new features include:
 - **Comment Parsing**: Automatic extraction of logical names from database comments using a configurable separator
 - **Markdown Customization**: Flexible column ordering, field aliases, and logical name display options
 
+## ⚠️ Important: Understanding Configuration Scope
+
+Before migrating, understand that Markdown customization has **two separate configuration areas**:
+
+| Configuration Area | Affects | Output File | Purpose |
+|-------------------|---------|-------------|---------|
+| `markdown.tables` | **Table List** | `README.md` | Customizes how tables appear in the main index |
+| `markdown.columns` | **Column Details** | Individual table files (e.g., `users.md`) | Customizes how columns appear within each table's documentation |
+
+**Key Point:** `tables` and `columns` are **independent**. Configuring one does not affect the other.
+
 ## Backward Compatibility
 
 ⚠️ **Good News**: These features are **100% backward compatible**. Your existing `.tbls.yml` files will continue to work without any changes.
@@ -66,19 +77,19 @@ Add the `markdown` section to customize output formatting:
 markdown:
   tables:
     show_logical_name: true
-    order: ["name", "logical_name", "comment", "type"]
+    order: ["name", "LogicalName", "comment", "type"]
     aliases:
       name: "Table Name"
-      logical_name: "Business Name"
+      LogicalName: "Business Name"
       comment: "Description"
       type: "Type"
 
   columns:
     show_logical_name: true
-    order: ["name", "logical_name", "type", "nullable", "default", "comment"]
+    order: ["name", "LogicalName", "type", "nullable", "default", "comment"]
     aliases:
       name: "Column Name"
-      logical_name: "Business Name"
+      LogicalName: "Business Name"
       type: "Data Type"
       nullable: "Nullable"
       default: "Default Value"
@@ -121,10 +132,10 @@ markdown:
    markdown:
      tables:
        show_logical_name: true
-       order: ["name", "logical_name", "comment", "type"]
+       order: ["name", "LogicalName", "comment", "type"]
      columns:
        show_logical_name: true
-       order: ["name", "logical_name", "type", "nullable", "comment"]
+       order: ["name", "LogicalName", "type", "nullable", "comment"]
    ```
 
 2. **Update database comments in bulk**
@@ -217,7 +228,7 @@ markdown:
     show_logical_name: true
     aliases:
       name: "テーブル名"
-      logical_name: "論理名"
+      LogicalName: "論理名"
       comment: "説明"
       type: "種別"
 
@@ -225,7 +236,7 @@ markdown:
     show_logical_name: true
     aliases:
       name: "カラム名"
-      logical_name: "論理名"
+      LogicalName: "論理名"
       type: "データ型"
       nullable: "NULL許可"
       default: "デフォルト値"
@@ -245,11 +256,11 @@ comment:
 markdown:
   database:
     show_logical_name: true
-    order: ["name", "logical_name", "comment"]
+    order: ["name", "LogicalName", "comment"]
 
   tables:
     show_logical_name: true
-    order: ["name", "logical_name", "comment", "type"]
+    order: ["name", "LogicalName", "comment", "type"]
     specific:
       # Critical tables get special treatment
       users:
@@ -261,7 +272,7 @@ markdown:
 
   columns:
     show_logical_name: true
-    order: ["logical_name", "name", "type", "nullable", "default", "comment"]
+    order: ["LogicalName", "name", "type", "nullable", "default", "comment"]
 
   indexes:
     show_logical_name: true

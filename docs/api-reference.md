@@ -55,8 +55,16 @@ type MarkdownConfig struct {
 }
 
 type ObjectCustomConfig struct {
+    // ShowLogicalName enables display of logical names extracted from comments
     ShowLogicalName bool              `yaml:"show_logical_name,omitempty"`
+
+    // Order specifies the fields to display and their order
+    // Only fields listed here will be shown in the output
+    // Field names are case-insensitive (e.g., "Name" and "name" are equivalent)
+    // If show_logical_name is false, "LogicalName" fields are automatically skipped
     Order          []string           `yaml:"order,omitempty"`
+
+    // Aliases maps field names to custom display names
     Aliases        map[string]string  `yaml:"aliases,omitempty"`
 }
 
@@ -76,10 +84,10 @@ type ColumnCustomConfig struct {
 markdown:
   tables:
     show_logical_name: true
-    order: ["name", "logical_name", "comment", "type"]
+    order: ["name", "LogicalName", "comment", "type"]
     aliases:
       name: "Table Name"
-      logical_name: "Business Name"
+      LogicalName: "Business Name"
     specific:
       users:
         aliases:
@@ -462,10 +470,10 @@ config := &MarkdownConfig{
     Tables: &TableCustomConfig{
         ObjectCustomConfig: &ObjectCustomConfig{
             ShowLogicalName: true,
-            Order: []string{"name", "logical_name", "comment"},
+            Order: []string{"name", "LogicalName", "comment"},
             Aliases: map[string]string{
                 "name": "Table Name",
-                "logical_name": "Business Name",
+                "LogicalName": "Business Name",
                 "comment": "Description",
             },
         },

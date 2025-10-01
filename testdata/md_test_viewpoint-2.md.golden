@@ -10,15 +10,15 @@ select label green
 
 select label red
 
-| Name | Columns | Comment | Type | Labels |
-| ---- | ------- | ------- | ---- | ------ |
-| [b](b.md) | 2 | table b |  | `red` `green` |
+| Name | Columns | Comment | Type |
+| ---- | ------- | ------- | ---- |
+| [b](b.md) | 2 | table b |  |
 
 ### -
 
-| Name | Columns | Comment | Type | Labels |
-| ---- | ------- | ------- | ---- | ------ |
-| [a](a.md) | 2 | table a |  | `blue` `green` |
+| Name | Columns | Comment | Type |
+| ---- | ------- | ------- | ---- |
+| [a](a.md) | 2 | table a |  |
 
 ## Relations
 

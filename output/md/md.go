@@ -770,6 +770,7 @@ func (m *Md) makeTableTemplateDataWithCustomization(t *schema.Table) map[string]
 	}
 
 	// Apply table-specific customization if available
+	// Note: tableCustomConfig is reserved for future table-level customization
 	var tableCustomConfig *config.ObjectCustomConfig
 	if markdownConfig != nil && markdownConfig.Tables != nil {
 		// Use general table configuration
@@ -779,6 +780,21 @@ func (m *Md) makeTableTemplateDataWithCustomization(t *schema.Table) map[string]
 		if markdownConfig.Tables.Specific != nil {
 			if specificConfig, exists := markdownConfig.Tables.Specific[t.Name]; exists {
 				tableCustomConfig = specificConfig
+			}
+		}
+	}
+	_ = tableCustomConfig // Reserved for future use
+
+	// Apply column-specific customization if available
+	var columnsCustomConfig *config.ObjectCustomConfig
+	if markdownConfig != nil && markdownConfig.Columns != nil {
+		// Use general column configuration
+		columnsCustomConfig = markdownConfig.Columns.ObjectCustomConfig
+
+		// Override with specific column configuration if exists
+		if markdownConfig.Columns.Specific != nil {
+			if specificConfig, exists := markdownConfig.Columns.Specific[t.Name]; exists {
+				columnsCustomConfig = specificConfig
 			}
 		}
 	}
@@ -838,8 +854,8 @@ func (m *Md) makeTableTemplateDataWithCustomization(t *schema.Table) map[string]
 	}
 
 	// Apply customization if available
-	if tableCustomConfig != nil {
-		customizedData := m.customizeColumnsData(t, columnsData, tableCustomConfig)
+	if columnsCustomConfig != nil {
+		customizedData := m.customizeColumnsData(t, columnsData, columnsCustomConfig)
 		columnsData = customizedData
 	}
 
@@ -865,65 +881,19 @@ func (m *Md) makeTableTemplateDataWithCustomization(t *schema.Table) map[string]
 		viewpointsData = append(viewpointsData, data)
 	}
 
-	// Constraints
-	constraintsData := [][]string{
-		[]string{
-			m.config.MergedDict.Lookup("Name"),
-			m.config.MergedDict.Lookup("Type"),
-			m.config.MergedDict.Lookup("Definition"),
-		},
-		[]string{"----", "----", "----------"},
+	// Constraints - with customization support
+	var constraintsCustomConfig *config.ObjectCustomConfig
+	if markdownConfig != nil {
+		constraintsCustomConfig = markdownConfig.GetObjectConfig("constraints")
 	}
-	cComment := false
-	for _, c := range t.Constraints {
-		if c.Comment != "" {
-			cComment = true
-		}
-	}
-	if cComment {
-		constraintsData[0] = append(constraintsData[0], m.config.MergedDict.Lookup("Comment"))
-		constraintsData[1] = append(constraintsData[1], "-------")
-	}
-	for _, c := range t.Constraints {
-		data := []string{
-			c.Name,
-			c.Type,
-			c.Def,
-		}
-		if cComment {
-			data = append(data, c.Comment)
-		}
-		constraintsData = append(constraintsData, data)
-	}
+	constraintsData := m.constraintsData(t, constraintsCustomConfig)
 
-	// Indexes
-	indexesData := [][]string{
-		[]string{
-			m.config.MergedDict.Lookup("Name"),
-			m.config.MergedDict.Lookup("Definition"),
-		},
-		[]string{"----", "----------"},
+	// Indexes - with customization support
+	var indexesCustomConfig *config.ObjectCustomConfig
+	if markdownConfig != nil {
+		indexesCustomConfig = markdownConfig.GetObjectConfig("indexes")
 	}
-	iComment := false
-	for _, i := range t.Indexes {
-		if i.Comment != "" {
-			iComment = true
-		}
-	}
-	if iComment {
-		indexesData[0] = append(indexesData[0], m.config.MergedDict.Lookup("Comment"))
-		indexesData[1] = append(indexesData[1], "-------")
-	}
-	for _, i := range t.Indexes {
-		data := []string{
-			i.Name,
-			i.Def,
-		}
-		if iComment {
-			data = append(data, i.Comment)
-		}
-		indexesData = append(indexesData, data)
-	}
+	indexesData := m.indexesData(t, indexesCustomConfig)
 
 	// Triggers
 	triggersData := [][]string{
@@ -1083,12 +1053,12 @@ func (m *Md) determineFinalColumnStructure(originalHeaders []string, config *con
 		for _, header := range defaultColumns {
 			newDefault = append(newDefault, header)
 			if header == "Name" {
-				newDefault = append(newDefault, "Logical Name")
+				newDefault = append(newDefault, "LogicalName")
 			}
 		}
 		// If no "Name" column found, just append at the beginning
 		if len(newDefault) == len(defaultColumns) {
-			newDefault = append([]string{"Logical Name"}, defaultColumns...)
+			newDefault = append([]string{"LogicalName"}, defaultColumns...)
 		}
 		defaultColumns = newDefault
 	}
@@ -1111,7 +1081,7 @@ func (m *Md) determineFinalColumnStructure(originalHeaders []string, config *con
 			IsLogicalName: false,
 		}
 
-		if columnName == "Logical Name" {
+		if columnName == "LogicalName" {
 			colInfo.IsLogicalName = true
 		} else if idx, exists := headerIndexMap[columnName]; exists {
 			colInfo.SourceIndex = idx
@@ -1120,6 +1090,158 @@ func (m *Md) determineFinalColumnStructure(originalHeaders []string, config *con
 		result = append(result, colInfo)
 	}
 
+	return result
+}
+
+// buildCustomizedObjectData builds customized table data for any object type (constraints, indexes, etc.)
+// This is a generic version that works with any schema object that has Name, LogicalName, and Comment fields
+func (m *Md) buildCustomizedObjectData(
+	originalHeaders []string,
+	originalDataRows [][]string,
+	config *config.ObjectCustomConfig,
+	logicalNames []string, // Logical names for each data row
+) [][]string {
+	// Determine the final column order and structure
+	finalStructure := m.determineFinalColumnStructure(originalHeaders, config)
+
+	// Build new header row with aliases applied
+	newHeaderRow := make([]string, len(finalStructure))
+	newSeparatorRow := make([]string, len(finalStructure))
+
+	for i, colInfo := range finalStructure {
+		headerText := colInfo.DisplayName
+		if config.Aliases != nil {
+			if alias, exists := config.Aliases[colInfo.OriginalName]; exists && alias != "" {
+				headerText = alias
+			}
+		}
+		newHeaderRow[i] = headerText
+		newSeparatorRow[i] = strings.Repeat("-", len(headerText))
+	}
+
+	// Build new data rows
+	newDataRows := make([][]string, len(originalDataRows))
+	for rowIdx, originalRow := range originalDataRows {
+		newRow := make([]string, len(finalStructure))
+		for colIdx, colInfo := range finalStructure {
+			if colInfo.SourceIndex >= 0 && colInfo.SourceIndex < len(originalRow) {
+				newRow[colIdx] = originalRow[colInfo.SourceIndex]
+			} else if colInfo.IsLogicalName && rowIdx < len(logicalNames) {
+				// Add logical name data
+				newRow[colIdx] = logicalNames[rowIdx]
+			} else {
+				newRow[colIdx] = ""
+			}
+		}
+		newDataRows[rowIdx] = newRow
+	}
+
+	// Combine all rows
+	result := [][]string{newHeaderRow, newSeparatorRow}
+	result = append(result, newDataRows...)
+
+	return result
+}
+
+// constraintsData builds customized constraints table data with support for
+// logical names, custom ordering, and aliases
+func (m *Md) constraintsData(t *schema.Table, customConfig *config.ObjectCustomConfig) [][]string {
+	// Build default headers
+	defaultHeaders := []string{"Name", "Type", "Definition"}
+	
+	// Build data rows (without Comment initially)
+	var dataRows [][]string
+	var logicalNames []string
+	
+	// Check if any constraint has a comment
+	hasComment := false
+	for _, c := range t.Constraints {
+		if c.Comment != "" {
+			hasComment = true
+			break
+		}
+	}
+	
+	// Add Comment header if needed
+	if hasComment {
+		defaultHeaders = append(defaultHeaders, "Comment")
+	}
+	
+	// Build data rows
+	for _, c := range t.Constraints {
+		row := []string{c.Name, c.Type, c.Def}
+		if hasComment {
+			row = append(row, c.Comment)
+		}
+		dataRows = append(dataRows, row)
+		logicalNames = append(logicalNames, c.GetLogicalNameOrFallback())
+	}
+	
+	// Apply customization
+	if customConfig != nil {
+		return m.buildCustomizedObjectData(defaultHeaders, dataRows, customConfig, logicalNames)
+	}
+	
+	// Return default format (with header and separator rows)
+	result := [][]string{defaultHeaders}
+	separator := make([]string, len(defaultHeaders))
+	for i := range separator {
+		separator[i] = "----"
+	}
+	result = append(result, separator)
+	result = append(result, dataRows...)
+	
+	return result
+}
+
+// indexesData builds customized indexes table data with support for
+// logical names, custom ordering, and aliases
+func (m *Md) indexesData(t *schema.Table, customConfig *config.ObjectCustomConfig) [][]string {
+	// Build default headers
+	defaultHeaders := []string{"Name", "Definition"}
+	
+	// Build data rows (without Comment initially)
+	var dataRows [][]string
+	var logicalNames []string
+	
+	// Check if any index has a comment
+	hasComment := false
+	for _, i := range t.Indexes {
+		if i.Comment != "" {
+			hasComment = true
+			break
+		}
+	}
+	
+	// Add Comment header if needed
+	if hasComment {
+		defaultHeaders = append(defaultHeaders, "Comment")
+	}
+	
+	// Build data rows
+	for _, i := range t.Indexes {
+		row := []string{i.Name, i.Def}
+		if hasComment {
+			row = append(row, i.Comment)
+		}
+		dataRows = append(dataRows, row)
+		logicalNames = append(logicalNames, i.GetLogicalNameOrFallback())
+	}
+	
+	// Apply customization
+	if customConfig != nil {
+		return m.buildCustomizedObjectData(defaultHeaders, dataRows, customConfig, logicalNames)
+	}
+	
+	// Return default format (with header and separator rows)
+	result := [][]string{defaultHeaders}
+	separator := make([]string, len(defaultHeaders))
+	for i := range separator {
+		separator[i] = "----"
+	}
+	result = append(result, separator)
+	result = append(result, dataRows...)
+	
 	return result
 }
 
@@ -1168,10 +1290,9 @@ func (m *Md) adjustColumnHeader(columnsHeader *[]string, columnsHeaderLine *[]st
 	if hasColumn {
 		headerText := m.config.MergedDict.Lookup(name)
 
-		// Apply aliases if Markdown customization is enabled
-		if m.config.Markdown != nil && m.config.Markdown.Columns != nil && m.config.Markdown.Columns.Aliases != nil {
-			headerText = m.customizer.ApplyAliases(headerText, m.config.Markdown.Columns.Aliases)
-		}
+		// NOTE: Do NOT apply aliases here!
+		// Aliases are applied later in customizeColumnsData() to ensure proper mapping
+		// between column names and data indices.
 
 		*columnsHeader = append(*columnsHeader, headerText)
 		*columnsHeaderLine = append(*columnsHeaderLine, strings.Repeat("-", runewidth.StringWidth(headerText)))
@@ -1180,6 +1301,15 @@ func (m *Md) adjustColumnHeader(columnsHeader *[]string, columnsHeaderLine *[]st
 
 func (m *Md) tablesData(tables []*schema.Table, number, adjust, showOnlyFirstParagraph, hasTableWithLabels bool) [][]string {
 	data := [][]string{}
+
+	// Build default header mapping
+	headerMap := map[string]int{
+		"Name":    0,
+		"Columns": 1,
+		"Comment": 2,
+		"Type":    3,
+	}
+
 	header := []string{
 		m.config.MergedDict.Lookup("Name"),
 		m.config.MergedDict.Lookup("Columns"),
@@ -1187,22 +1317,117 @@ func (m *Md) tablesData(tables []*schema.Table, number, adjust, showOnlyFirstPar
 		m.config.MergedDict.Lookup("Type"),
 	}
 
-	// Apply aliases to headers if customization is enabled
-	if m.config.Markdown != nil && m.config.Markdown.Tables != nil && m.config.Markdown.Tables.Aliases != nil {
-		for i, h := range header {
-			header[i] = m.customizer.ApplyAliases(h, m.config.Markdown.Tables.Aliases)
+	headerLine := []string{"----", "-------", "-------", "----"}
+
+	// Add Labels column if needed
+	if hasTableWithLabels {
+		header = append(header, m.config.MergedDict.Lookup("Labels"))
+		headerLine = append(headerLine, "------")
+		headerMap["Labels"] = len(header) - 1
+	}
+
+	// Check if customization is enabled
+	var tableConfig *config.ObjectCustomConfig
+	if m.config.Markdown != nil && m.config.Markdown.Tables != nil {
+		tableConfig = m.config.Markdown.Tables.ObjectCustomConfig
+	}
+
+	// Apply show_logical_name
+	if tableConfig != nil && tableConfig.ShowLogicalName {
+		// Insert LogicalName after Name
+		newHeader := make([]string, 0, len(header)+1)
+		newHeaderLine := make([]string, 0, len(headerLine)+1)
+		newHeader = append(newHeader, header[0])
+		newHeader = append(newHeader, m.config.MergedDict.Lookup("LogicalName"))
+		newHeader = append(newHeader, header[1:]...)
+		newHeaderLine = append(newHeaderLine, headerLine[0])
+		newHeaderLine = append(newHeaderLine, "---------")
+		newHeaderLine = append(newHeaderLine, headerLine[1:]...)
+		header = newHeader
+		headerLine = newHeaderLine
+
+		// Update headerMap
+		headerMap["LogicalName"] = 1
+		for key, oldIdx := range headerMap {
+			if oldIdx >= 1 && key != "LogicalName" {
+				headerMap[key] = oldIdx + 1
+			}
 		}
 	}
 
-	headerLine := []string{"----", "-------", "-------", "----"}
+	// Apply order if specified
+	if tableConfig != nil && len(tableConfig.Order) > 0 {
+		// If show_logical_name is true and Order doesn't include logicalname, insert it after name
+		effectiveOrder := make([]string, len(tableConfig.Order))
+		copy(effectiveOrder, tableConfig.Order)
 
-	if hasTableWithLabels {
-		labelsHeader := m.config.MergedDict.Lookup("Labels")
-		if m.config.Markdown != nil && m.config.Markdown.Tables != nil && m.config.Markdown.Tables.Aliases != nil {
-			labelsHeader = m.customizer.ApplyAliases(labelsHeader, m.config.Markdown.Tables.Aliases)
+		if tableConfig.ShowLogicalName {
+			hasLogicalName := false
+			for _, field := range effectiveOrder {
+				if strings.ToLower(field) == "logicalname" {
+					hasLogicalName = true
+					break
+				}
+			}
+
+			if !hasLogicalName {
+				// Insert logicalname after name
+				newOrder := make([]string, 0, len(effectiveOrder)+1)
+				for i, field := range effectiveOrder {
+					newOrder = append(newOrder, field)
+					if strings.ToLower(field) == "name" && i == 0 {
+						newOrder = append(newOrder, "logicalname")
+					}
+				}
+				effectiveOrder = newOrder
+			}
 		}
-		header = append(header, labelsHeader)
-		headerLine = append(headerLine, "------")
+
+		orderedHeader := make([]string, 0, len(effectiveOrder))
+		orderedHeaderLine := make([]string, 0, len(effectiveOrder))
+		newHeaderMap := make(map[string]int)
+
+		// Create a case-insensitive lookup map for headerMap
+		headerMapLower := make(map[string]string)
+		for key := range headerMap {
+			headerMapLower[strings.ToLower(key)] = key
+		}
+
+		for _, fieldName := range effectiveOrder {
+			// Skip logicalname if show_logical_name is false
+			if !tableConfig.ShowLogicalName && strings.ToLower(fieldName) == "logicalname" {
+				continue
+			}
+
+			// Try exact match first
+			actualFieldName := fieldName
+			oldIdx, exists := headerMap[actualFieldName]
+
+			// If not found, try case-insensitive match
+			if !exists {
+				if actualKey, ok := headerMapLower[strings.ToLower(fieldName)]; ok {
+					actualFieldName = actualKey
+					oldIdx, exists = headerMap[actualFieldName]
+				}
+			}
+
+			if exists && oldIdx < len(header) {
+				orderedHeader = append(orderedHeader, header[oldIdx])
+				orderedHeaderLine = append(orderedHeaderLine, headerLine[oldIdx])
+				newHeaderMap[actualFieldName] = len(orderedHeader) - 1
+			}
+		}
+
+		header = orderedHeader
+		headerLine = orderedHeaderLine
+		headerMap = newHeaderMap
+	}
+
+	// Apply aliases to headers
+	if tableConfig != nil && tableConfig.Aliases != nil {
+		for i, h := range header {
+			header[i] = m.customizer.ApplyAliases(h, tableConfig.Aliases)
+		}
 	}
 
 	data = append(data,
@@ -1210,21 +1435,84 @@ func (m *Md) tablesData(tables []*schema.Table, number, adjust, showOnlyFirstPar
 		headerLine,
 	)
 
+	// Build data rows
 	for _, t := range tables {
 		comment := t.Comment
 		if showOnlyFirstParagraph {
 			comment = output.ShowOnlyFirstParagraph(comment)
 		}
-		d := []string{
+
+		// Create full data array
+		fullData := []string{
 			fmt.Sprintf("[%s](%s%s.md)", t.Name, m.config.BaseURL, mdurl.Encode(t.Name)),
 			fmt.Sprintf("%d", len(t.Columns)),
 			comment,
 			t.Type,
 		}
+
 		if hasTableWithLabels {
-			d = append(d, output.LabelJoin(t.Labels))
+			fullData = append(fullData, output.LabelJoin(t.Labels))
 		}
-		data = append(data, d)
+
+		// Add logical name if enabled
+		if tableConfig != nil && tableConfig.ShowLogicalName {
+			logicalName := t.GetLogicalNameOrFallback()
+			// Insert after Name (position 1)
+			newFullData := make([]string, 0, len(fullData)+1)
+			newFullData = append(newFullData, fullData[0])
+			newFullData = append(newFullData, logicalName)
+			newFullData = append(newFullData, fullData[1:]...)
+			fullData = newFullData
+		}
+
+		// Reorder data according to headerMap if order is specified
+		if tableConfig != nil && len(tableConfig.Order) > 0 {
+			orderedData := make([]string, len(header))
+			originalHeaderMap := map[string]int{
+				"Name":        0,
+				"LogicalName": 1,
+				"Columns":     2,
+				"Comment":     3,
+				"Type":        4,
+				"Labels":      5,
+			}
+			if !tableConfig.ShowLogicalName {
+				originalHeaderMap = map[string]int{
+					"Name":    0,
+					"Columns": 1,
+					"Comment": 2,
+					"Type":    3,
+					"Labels":  4,
+				}
+			}
+
+			// Create case-insensitive lookup for originalHeaderMap with underscore normalization
+			originalHeaderMapLower := make(map[string]string)
+			for key := range originalHeaderMap {
+				normalizedKey := strings.ToLower(strings.ReplaceAll(key, "_", ""))
+				originalHeaderMapLower[normalizedKey] = key
+			}
+
+			for fieldName, newIdx := range headerMap {
+				// Try exact match first
+				origIdx, exists := originalHeaderMap[fieldName]
+
+				// If not found, try case-insensitive match with underscore normalization
+				if !exists {
+					normalizedFieldName := strings.ToLower(strings.ReplaceAll(fieldName, "_", ""))
+					if actualKey, ok := originalHeaderMapLower[normalizedFieldName]; ok {
+						origIdx, exists = originalHeaderMap[actualKey]
+					}
+				}
+
+				if exists && origIdx < len(fullData) {
+					orderedData[newIdx] = fullData[origIdx]
+				}
+			}
+			fullData = orderedData
+		}
+
+		data = append(data, fullData)
 	}
 
 	if number {
@@ -1240,6 +1528,15 @@ func (m *Md) tablesData(tables []*schema.Table, number, adjust, showOnlyFirstPar
 
 func (m *Md) functionsData(functions []*schema.Function, number, adjust bool) [][]string {
 	data := [][]string{}
+
+	// Build default header mapping
+	headerMap := map[string]int{
+		"Name":       0,
+		"ReturnType": 1,
+		"Arguments":  2,
+		"Type":       3,
+	}
+
 	header := []string{
 		m.config.MergedDict.Lookup("Name"),
 		m.config.MergedDict.Lookup("ReturnType"),
@@ -1247,27 +1544,118 @@ func (m *Md) functionsData(functions []*schema.Function, number, adjust bool) []
 		m.config.MergedDict.Lookup("Type"),
 	}
 
-	// Apply aliases to headers if customization is enabled
-	if m.config.Markdown != nil && m.config.Markdown.Functions != nil && m.config.Markdown.Functions.Aliases != nil {
+	headerLine := []string{"----", "-------", "-------", "----"}
+
+	// Check if customization is enabled
+	var functionConfig *config.ObjectCustomConfig
+	if m.config.Markdown != nil && m.config.Markdown.Functions != nil {
+		functionConfig = m.config.Markdown.Functions
+	}
+
+	// Apply order if specified
+	if functionConfig != nil && len(functionConfig.Order) > 0 {
+		orderedHeader := make([]string, 0, len(functionConfig.Order))
+		orderedHeaderLine := make([]string, 0, len(functionConfig.Order))
+		newHeaderMap := make(map[string]int)
+
+		// Create a case-insensitive lookup map for headerMap
+		// Also normalize underscores for matching (e.g., "return_type" vs "ReturnType")
+		headerMapLower := make(map[string]string)
+		for key := range headerMap {
+			normalizedKey := strings.ToLower(strings.ReplaceAll(key, "_", ""))
+			headerMapLower[normalizedKey] = key
+		}
+
+		for _, fieldName := range functionConfig.Order {
+			// Skip logicalname if show_logical_name is false (Functions don't support logical names yet)
+			if strings.ToLower(fieldName) == "logicalname" {
+				continue
+			}
+
+			// Try exact match first
+			actualFieldName := fieldName
+			oldIdx, exists := headerMap[actualFieldName]
+
+			// If not found, try case-insensitive match with underscore normalization
+			if !exists {
+				normalizedFieldName := strings.ToLower(strings.ReplaceAll(fieldName, "_", ""))
+				if actualKey, ok := headerMapLower[normalizedFieldName]; ok {
+					actualFieldName = actualKey
+					oldIdx, exists = headerMap[actualFieldName]
+				}
+			}
+
+			if exists && oldIdx < len(header) {
+				orderedHeader = append(orderedHeader, header[oldIdx])
+				orderedHeaderLine = append(orderedHeaderLine, headerLine[oldIdx])
+				newHeaderMap[actualFieldName] = len(orderedHeader) - 1
+			}
+		}
+
+		header = orderedHeader
+		headerLine = orderedHeaderLine
+		headerMap = newHeaderMap
+	}
+
+	// Apply aliases to headers
+	if functionConfig != nil && functionConfig.Aliases != nil {
 		for i, h := range header {
-			header[i] = m.customizer.ApplyAliases(h, m.config.Markdown.Functions.Aliases)
+			header[i] = m.customizer.ApplyAliases(h, functionConfig.Aliases)
 		}
 	}
 
-	headerLine := []string{"----", "-------", "-------", "----"}
 	data = append(data,
 		header,
 		headerLine,
 	)
 
+	// Build data rows
 	for _, f := range functions {
-		d := []string{
+		// Create full data array
+		fullData := []string{
 			f.Name,
 			f.ReturnType,
 			f.Arguments,
 			f.Type,
 		}
-		data = append(data, d)
+
+		// Reorder data according to headerMap if order is specified
+		if functionConfig != nil && len(functionConfig.Order) > 0 {
+			orderedData := make([]string, len(header))
+			originalHeaderMap := map[string]int{
+				"Name":       0,
+				"ReturnType": 1,
+				"Arguments":  2,
+				"Type":       3,
+			}
+
+			// Create case-insensitive lookup for originalHeaderMap with underscore normalization
+			originalHeaderMapLower := make(map[string]string)
+			for key := range originalHeaderMap {
+				normalizedKey := strings.ToLower(strings.ReplaceAll(key, "_", ""))
+				originalHeaderMapLower[normalizedKey] = key
+			}
+
+			for fieldName, newIdx := range headerMap {
+				// Try exact match first
+				origIdx, exists := originalHeaderMap[fieldName]
+
+				// If not found, try case-insensitive match with underscore normalization
+				if !exists {
+					normalizedFieldName := strings.ToLower(strings.ReplaceAll(fieldName, "_", ""))
+					if actualKey, ok := originalHeaderMapLower[normalizedFieldName]; ok {
+						origIdx, exists = originalHeaderMap[actualKey]
+					}
+				}
+
+				if exists && origIdx < len(fullData) {
+					orderedData[newIdx] = fullData[origIdx]
+				}
+			}
+			fullData = orderedData
+		}
+
+		data = append(data, fullData)
 	}
 
 	if number {

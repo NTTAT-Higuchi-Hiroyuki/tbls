@@ -94,7 +94,7 @@ func TestMarkdownConfig_GetEffectiveConfig(t *testing.T) {
 			Specific: map[string]*ObjectCustomConfig{
 				"users": {
 					ShowLogicalName: false,
-					Order:           []string{"logical_name", "name"},
+					Order:           []string{"LogicalName", "name"},
 				},
 			},
 		},
@@ -112,7 +112,7 @@ func TestMarkdownConfig_GetEffectiveConfig(t *testing.T) {
 			objectType:   "tables",
 			specificName: "users",
 			wantShow:     false,
-			wantOrder:    []string{"logical_name", "name"},
+			wantOrder:    []string{"LogicalName", "name"},
 		},
 		{
 			name:         "without specific config - uses global",
@@ -159,7 +159,7 @@ func TestMarkdownConfig_Validate(t *testing.T) {
 				Tables: &TableCustomConfig{
 					ObjectCustomConfig: &ObjectCustomConfig{
 						ShowLogicalName: true,
-						Order:           []string{"name", "logical_name", "comment"},
+						Order:           []string{"name", "LogicalName", "comment"},
 						Aliases:         map[string]string{"name": "テーブル名"},
 					},
 				},
@@ -231,8 +231,9 @@ func TestMarkdownConfig_SetDefaults(t *testing.T) {
 				return mc.Database != nil &&
 					mc.Tables != nil &&
 					mc.Columns != nil &&
-					len(mc.Tables.Order) > 0 &&
-					len(mc.Columns.Order) > 0
+					len(mc.Tables.Order) > 0
+				// Note: Columns.Order is intentionally not set by default
+				// to allow dynamic LogicalName insertion via determineFinalColumnStructure
 			},
 		},
 		{
@@ -267,14 +268,14 @@ func TestMarkdownConfig_YAML_Serialization(t *testing.T) {
 		Tables: &TableCustomConfig{
 			ObjectCustomConfig: &ObjectCustomConfig{
 				ShowLogicalName: true,
-				Order:           []string{"name", "logical_name", "comment"},
+				Order:           []string{"name", "LogicalName", "comment"},
 				Aliases:         map[string]string{"name": "テーブル名"},
 			},
 			Specific: map[string]*ObjectCustomConfig{
 				"users": {
 					ShowLogicalName: false,
-					Order:           []string{"logical_name", "name"},
-					Aliases:         map[string]string{"logical_name": "論理名"},
+					Order:           []string{"LogicalName", "name"},
+					Aliases:         map[string]string{"LogicalName": "論理名"},
 				},
 			},
 		},
@@ -322,7 +323,7 @@ func TestMarkdownConfig_IsValid(t *testing.T) {
 				Tables: &TableCustomConfig{
 					ObjectCustomConfig: &ObjectCustomConfig{
 						ShowLogicalName: true,
-						Order:           []string{"name", "logical_name", "comment"},
+						Order:           []string{"name", "LogicalName", "comment"},
 						Aliases:         map[string]string{"name": "テーブル名"},
 					},
 				},

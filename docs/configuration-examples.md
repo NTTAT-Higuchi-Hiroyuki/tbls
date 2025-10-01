@@ -2,8 +2,37 @@
 
 This document provides comprehensive configuration examples for the new comment parsing and Markdown customization features in tbls v1.86.0.
 
+## ⚠️ Critical: Understanding `tables` vs `columns` Configuration
+
+Before configuring Markdown output, it's essential to understand the two distinct configuration areas:
+
+| Configuration | Applies To | Output Location | Controls |
+|--------------|------------|----------------|----------|
+| `markdown.tables` | **Table List** | `README.md` | Table names, logical names, descriptions in the main index |
+| `markdown.columns` | **Column Details** | Individual table pages (e.g., `users.md`) | Column information within each table's documentation |
+
+**Example showing both:**
+
+```yaml
+markdown:
+  # Controls table list in README.md
+  tables:
+    show_logical_name: true
+    order: ["name", "LogicalName", "comment", "type"]
+
+  # Controls column details in each table page
+  columns:
+    show_logical_name: true
+    order: ["LogicalName", "name", "type", "nullable", "comment"]
+```
+
+**Common Mistake:** Using `tables.order` expecting it to affect column output. Always use `columns` configuration for column-related customization.
+
+---
+
 ## Table of Contents
 
+- [⚠️ Critical: Understanding tables vs columns Configuration](#️-critical-understanding-tables-vs-columns-configuration)
 - [Basic Examples](#basic-examples)
 - [Database-Specific Examples](#database-specific-examples)
 - [Use Case Examples](#use-case-examples)
@@ -56,20 +85,26 @@ markdown:
 
 ### Column Reordering
 
-Change the order of columns in Markdown tables:
+Change the order of columns in Markdown tables. **Important:** When you specify the `order` parameter, only the columns listed in the array will be displayed. Columns not included in the `order` array will be hidden from the output.
 
 ```yaml
 # .tbls.yml
 markdown:
   columns:
-    order: ["logical_name", "name", "type", "nullable", "comment"]
+    order: ["LogicalName", "name", "type", "nullable", "comment"]
 ```
 
-**Default order:**
+**Default order (all columns shown):**
 | Name | Type | Nullable | Default | Comment |
 
-**Custom order:**
+**Custom order (only specified columns shown):**
 | Logical Name | Name | Type | Nullable | Comment |
+
+**Notes:**
+
+- The `Default` column is not included in the custom order, so it will not appear in the output.
+- **Case Insensitivity**: Field names in the `order` array are case-insensitive. You can use `"Name"`, `"name"`, `"LogicalName"`, or `"LogicalName"` interchangeably.
+- **Automatic Filtering**: If `show_logical_name` is `false` and `"LogicalName"` is included in the `order` array, it will be automatically skipped.
 
 ## Database-Specific Examples
 
@@ -88,35 +123,35 @@ comment:
 markdown:
   database:
     show_logical_name: true
-    order: ["name", "logical_name", "comment"]
+    order: ["name", "LogicalName", "comment"]
     aliases:
       name: "Database Name"
-      logical_name: "Business Name"
+      LogicalName: "Business Name"
       comment: "Description"
 
   schemas:
     show_logical_name: true
-    order: ["name", "logical_name", "comment"]
+    order: ["name", "LogicalName", "comment"]
     aliases:
       name: "Schema Name"
-      logical_name: "Business Area"
+      LogicalName: "Business Area"
       comment: "Purpose"
 
   tables:
     show_logical_name: true
-    order: ["name", "logical_name", "comment", "type"]
+    order: ["name", "LogicalName", "comment", "type"]
     aliases:
       name: "Physical Name"
-      logical_name: "Business Entity"
+      LogicalName: "Business Entity"
       comment: "Description"
       type: "Object Type"
 
   columns:
     show_logical_name: true
-    order: ["logical_name", "name", "type", "nullable", "default", "comment"]
+    order: ["LogicalName", "name", "type", "nullable", "default", "comment"]
     aliases:
       name: "Physical Name"
-      logical_name: "Business Field"
+      LogicalName: "Business Field"
       type: "Data Type"
       nullable: "Required"
       default: "Default Value"
@@ -126,7 +161,7 @@ markdown:
     show_logical_name: true
     aliases:
       name: "Index Name"
-      logical_name: "Purpose"
+      LogicalName: "Purpose"
       columns: "Indexed Columns"
       comment: "Description"
 
@@ -134,7 +169,7 @@ markdown:
     show_logical_name: true
     aliases:
       name: "Constraint Name"
-      logical_name: "Business Rule"
+      LogicalName: "Business Rule"
       type: "Rule Type"
       columns: "Affected Columns"
 
@@ -161,20 +196,20 @@ comment:
 markdown:
   tables:
     show_logical_name: true
-    order: ["name", "logical_name", "engine", "comment", "type"]
+    order: ["name", "LogicalName", "engine", "comment", "type"]
     aliases:
       name: "Table Name"
-      logical_name: "Business Entity"
+      LogicalName: "Business Entity"
       engine: "Storage Engine"
       comment: "Description"
       type: "Table Type"
 
   columns:
     show_logical_name: true
-    order: ["name", "logical_name", "type", "nullable", "auto_increment", "default", "comment"]
+    order: ["name", "LogicalName", "type", "nullable", "auto_increment", "default", "comment"]
     aliases:
       name: "Column Name"
-      logical_name: "Business Field"
+      LogicalName: "Business Field"
       type: "MySQL Type"
       nullable: "NULL Allowed"
       auto_increment: "Auto Increment"
@@ -210,28 +245,28 @@ comment:
 markdown:
   schemas:
     show_logical_name: true
-    order: ["name", "logical_name", "comment"]
+    order: ["name", "LogicalName", "comment"]
     aliases:
       name: "Schema Name"
-      logical_name: "Business Domain"
+      LogicalName: "Business Domain"
       comment: "Purpose"
 
   tables:
     show_logical_name: true
-    order: ["schema_name", "name", "logical_name", "comment", "type"]
+    order: ["schema_name", "name", "LogicalName", "comment", "type"]
     aliases:
       schema_name: "Schema"
       name: "Table Name"
-      logical_name: "Business Entity"
+      LogicalName: "Business Entity"
       comment: "Description"
       type: "Object Type"
 
   columns:
     show_logical_name: true
-    order: ["name", "logical_name", "type", "nullable", "identity", "default", "comment"]
+    order: ["name", "LogicalName", "type", "nullable", "identity", "default", "comment"]
     aliases:
       name: "Column Name"
-      logical_name: "Business Field"
+      LogicalName: "Business Field"
       type: "SQL Server Type"
       nullable: "Nullable"
       identity: "Identity"
@@ -270,26 +305,26 @@ format:
 markdown:
   database:
     show_logical_name: true
-    order: ["name", "logical_name", "comment"]
+    order: ["name", "LogicalName", "comment"]
     aliases:
       name: "🗄️ Database Name"
-      logical_name: "📋 Business Name"
+      LogicalName: "📋 Business Name"
       comment: "📝 Description"
 
   schemas:
     show_logical_name: true
-    order: ["name", "logical_name", "comment"]
+    order: ["name", "LogicalName", "comment"]
     aliases:
       name: "📂 Schema Name"
-      logical_name: "🏢 Business Domain"
+      LogicalName: "🏢 Business Domain"
       comment: "📋 Purpose"
 
   tables:
     show_logical_name: true
-    order: ["name", "logical_name", "comment", "type"]
+    order: ["name", "LogicalName", "comment", "type"]
     aliases:
       name: "📋 Table Name"
-      logical_name: "💼 Business Entity"
+      LogicalName: "💼 Business Entity"
       comment: "📝 Description"
       type: "🏷️ Type"
     specific:
@@ -297,22 +332,22 @@ markdown:
       customers:
         aliases:
           name: "👥 Customer Management"
-          logical_name: "顧客管理テーブル"
+          LogicalName: "顧客管理テーブル"
       orders:
         aliases:
           name: "🛒 Order Processing"
-          logical_name: "注文処理テーブル"
+          LogicalName: "注文処理テーブル"
       products:
         aliases:
           name: "📦 Product Catalog"
-          logical_name: "商品カタログテーブル"
+          LogicalName: "商品カタログテーブル"
 
   columns:
     show_logical_name: true
-    order: ["logical_name", "name", "type", "nullable", "default", "comment"]
+    order: ["LogicalName", "name", "type", "nullable", "default", "comment"]
     aliases:
       name: "🔧 Physical Name"
-      logical_name: "💼 Business Field"
+      LogicalName: "💼 Business Field"
       type: "📊 Data Type"
       nullable: "❓ Required"
       default: "⚙️ Default"
@@ -320,9 +355,9 @@ markdown:
     specific:
       # Customer table columns
       customers:
-        order: ["logical_name", "name", "type", "nullable", "comment"]
+        order: ["LogicalName", "name", "type", "nullable", "comment"]
         aliases:
-          logical_name: "顧客項目名"
+          LogicalName: "顧客項目名"
           name: "物理カラム名"
           type: "データ型"
           nullable: "必須項目"
@@ -332,14 +367,14 @@ markdown:
     show_logical_name: true
     aliases:
       name: "👁️ View Name"
-      logical_name: "📊 Business View"
+      LogicalName: "📊 Business View"
       comment: "📝 Purpose"
 
   indexes:
     show_logical_name: true
     aliases:
       name: "🗂️ Index Name"
-      logical_name: "⚡ Performance Purpose"
+      LogicalName: "⚡ Performance Purpose"
       columns: "📋 Indexed Columns"
       comment: "📝 Description"
 
@@ -347,7 +382,7 @@ markdown:
     show_logical_name: true
     aliases:
       name: "🔒 Constraint Name"
-      logical_name: "📏 Business Rule"
+      LogicalName: "📏 Business Rule"
       type: "🏷️ Rule Type"
       columns: "📋 Affected Columns"
       comment: "📝 Description"
@@ -356,7 +391,7 @@ markdown:
     show_logical_name: true
     aliases:
       name: "⚙️ Function Name"
-      logical_name: "💼 Business Function"
+      LogicalName: "💼 Business Function"
       return_type: "📤 Returns"
       arguments: "📥 Parameters"
       comment: "📝 Purpose"
@@ -423,42 +458,42 @@ comment:
 markdown:
   tables:
     show_logical_name: true
-    order: ["name", "logical_name", "comment", "type"]
+    order: ["name", "LogicalName", "comment", "type"]
     aliases:
       name: "🌐 API Resource"
-      logical_name: "📋 Resource Name"
+      LogicalName: "📋 Resource Name"
       comment: "📝 API Purpose"
       type: "🏷️ Type"
     specific:
       users:
         aliases:
           name: "👥 /api/users"
-          logical_name: "User Accounts"
+          LogicalName: "User Accounts"
       posts:
         aliases:
           name: "📝 /api/posts"
-          logical_name: "Blog Posts"
+          LogicalName: "Blog Posts"
       comments:
         aliases:
           name: "💬 /api/comments"
-          logical_name: "User Comments"
+          LogicalName: "User Comments"
 
   columns:
     show_logical_name: true
-    order: ["name", "logical_name", "type", "nullable", "comment"]
+    order: ["name", "LogicalName", "type", "nullable", "comment"]
     aliases:
       name: "🔧 JSON Field"
-      logical_name: "📋 API Field"
+      LogicalName: "📋 API Field"
       type: "📊 JSON Type"
       nullable: "❓ Optional"
       comment: "📝 Field Description"
     specific:
       users:
-        order: ["logical_name", "name", "type", "nullable", "comment"]
+        order: ["LogicalName", "name", "type", "nullable", "comment"]
       posts:
-        order: ["logical_name", "name", "type", "nullable", "comment"]
+        order: ["LogicalName", "name", "type", "nullable", "comment"]
       comments:
-        order: ["logical_name", "name", "type", "nullable", "comment"]
+        order: ["LogicalName", "name", "type", "nullable", "comment"]
 
 # API-focused filtering
 include:
@@ -493,36 +528,36 @@ comment:
 markdown:
   tables:
     show_logical_name: true
-    order: ["name", "logical_name", "comment", "type"]
+    order: ["name", "LogicalName", "comment", "type"]
     aliases:
       name: "📊 Table Name"
-      logical_name: "📈 Business Metric"
+      LogicalName: "📈 Business Metric"
       comment: "📝 Analytics Purpose"
       type: "🏷️ Table Type"
     specific:
       fact_sales:
         aliases:
           name: "💰 Sales Facts"
-          logical_name: "売上実績ファクト"
+          LogicalName: "売上実績ファクト"
       dim_customers:
         aliases:
           name: "👥 Customer Dimension"
-          logical_name: "顧客ディメンション"
+          LogicalName: "顧客ディメンション"
       dim_products:
         aliases:
           name: "📦 Product Dimension"
-          logical_name: "商品ディメンション"
+          LogicalName: "商品ディメンション"
       dim_time:
         aliases:
           name: "📅 Time Dimension"
-          logical_name: "時間ディメンション"
+          LogicalName: "時間ディメンション"
 
   columns:
     show_logical_name: true
-    order: ["logical_name", "name", "type", "nullable", "comment"]
+    order: ["LogicalName", "name", "type", "nullable", "comment"]
     aliases:
       name: "🔧 Column Name"
-      logical_name: "📊 Metric Name"
+      LogicalName: "📊 Metric Name"
       type: "📈 Data Type"
       nullable: "❓ Optional"
       comment: "📝 Calculation Logic"
@@ -563,19 +598,19 @@ comment:
 markdown:
   schemas:
     show_logical_name: true
-    order: ["name", "logical_name", "comment"]
+    order: ["name", "LogicalName", "comment"]
     aliases:
       name: "Schema Name"
-      logical_name: "Business Domain"
+      LogicalName: "Business Domain"
       comment: "Domain Purpose"
 
   tables:
     show_logical_name: true
-    order: ["schema_name", "name", "logical_name", "comment", "type"]
+    order: ["schema_name", "name", "LogicalName", "comment", "type"]
     aliases:
       schema_name: "📂 Domain"
       name: "📋 Table"
-      logical_name: "💼 Entity"
+      LogicalName: "💼 Entity"
       comment: "📝 Description"
       type: "🏷️ Type"
     specific:
@@ -583,36 +618,36 @@ markdown:
       sales.customers:
         aliases:
           name: "👥 Customer Master"
-          logical_name: "顧客マスタ"
+          LogicalName: "顧客マスタ"
       sales.orders:
         aliases:
           name: "🛒 Order Transactions"
-          logical_name: "注文取引"
+          LogicalName: "注文取引"
       # HR domain
       hr.employees:
         aliases:
           name: "👤 Employee Records"
-          logical_name: "従業員記録"
+          LogicalName: "従業員記録"
       hr.departments:
         aliases:
           name: "🏢 Department Structure"
-          logical_name: "部門構造"
+          LogicalName: "部門構造"
       # Finance domain
       finance.accounts:
         aliases:
           name: "💰 Chart of Accounts"
-          logical_name: "勘定科目"
+          LogicalName: "勘定科目"
       finance.transactions:
         aliases:
           name: "📊 Financial Transactions"
-          logical_name: "財務取引"
+          LogicalName: "財務取引"
 
   columns:
     show_logical_name: true
-    order: ["logical_name", "name", "type", "nullable", "default", "comment"]
+    order: ["LogicalName", "name", "type", "nullable", "default", "comment"]
     aliases:
       name: "🔧 Column"
-      logical_name: "💼 Field"
+      LogicalName: "💼 Field"
       type: "📊 Type"
       nullable: "❓ Required"
       default: "⚙️ Default"
@@ -620,14 +655,14 @@ markdown:
     specific:
       # Schema-specific column settings
       sales.customers:
-        order: ["logical_name", "name", "type", "nullable", "comment"]
+        order: ["LogicalName", "name", "type", "nullable", "comment"]
         aliases:
-          logical_name: "顧客項目"
+          LogicalName: "顧客項目"
           name: "物理項目"
       hr.employees:
-        order: ["logical_name", "name", "type", "nullable", "comment"]
+        order: ["LogicalName", "name", "type", "nullable", "comment"]
         aliases:
-          logical_name: "人事項目"
+          LogicalName: "人事項目"
           name: "物理項目"
 
 # Schema-based filtering
@@ -666,67 +701,67 @@ comment:
 markdown:
   database:
     show_logical_name: true
-    order: ["name", "logical_name", "comment"]
+    order: ["name", "LogicalName", "comment"]
     aliases:
       name: "データベース名"
-      logical_name: "論理名"
+      LogicalName: "論理名"
       comment: "説明"
 
   tables:
     show_logical_name: true
-    order: ["name", "logical_name", "comment", "type"]
+    order: ["name", "LogicalName", "comment", "type"]
     aliases:
       name: "テーブル名"
-      logical_name: "論理名"
+      LogicalName: "論理名"
       comment: "説明"
       type: "種別"
     specific:
       users:
         aliases:
           name: "👥 ユーザーテーブル"
-          logical_name: "利用者マスタ"
+          LogicalName: "利用者マスタ"
       products:
         aliases:
           name: "📦 商品テーブル"
-          logical_name: "商品マスタ"
+          LogicalName: "商品マスタ"
       orders:
         aliases:
           name: "🛒 注文テーブル"
-          logical_name: "注文データ"
+          LogicalName: "注文データ"
       categories:
         aliases:
           name: "📂 カテゴリテーブル"
-          logical_name: "分類マスタ"
+          LogicalName: "分類マスタ"
 
   columns:
     show_logical_name: true
-    order: ["logical_name", "name", "type", "nullable", "default", "comment"]
+    order: ["LogicalName", "name", "type", "nullable", "default", "comment"]
     aliases:
       name: "カラム名"
-      logical_name: "論理名"
+      LogicalName: "論理名"
       type: "データ型"
       nullable: "NULL許可"
       default: "デフォルト値"
       comment: "説明"
     specific:
       users:
-        order: ["logical_name", "name", "type", "nullable", "comment"]
+        order: ["LogicalName", "name", "type", "nullable", "comment"]
         aliases:
-          logical_name: "項目名"
+          LogicalName: "項目名"
           name: "物理名"
           type: "型"
           nullable: "必須"
           comment: "説明"
       products:
         aliases:
-          logical_name: "商品項目名"
+          LogicalName: "商品項目名"
           name: "物理カラム名"
 
   views:
     show_logical_name: true
     aliases:
       name: "ビュー名"
-      logical_name: "論理名"
+      LogicalName: "論理名"
       comment: "説明"
       definition: "定義"
 
@@ -734,7 +769,7 @@ markdown:
     show_logical_name: true
     aliases:
       name: "インデックス名"
-      logical_name: "論理名"
+      LogicalName: "論理名"
       columns: "対象カラム"
       comment: "説明"
 
@@ -742,7 +777,7 @@ markdown:
     show_logical_name: true
     aliases:
       name: "制約名"
-      logical_name: "論理名"
+      LogicalName: "論理名"
       type: "制約タイプ"
       columns: "対象カラム"
       comment: "説明"
@@ -751,7 +786,7 @@ markdown:
     show_logical_name: true
     aliases:
       name: "関数名"
-      logical_name: "論理名"
+      LogicalName: "論理名"
       return_type: "戻り値型"
       arguments: "引数"
       comment: "説明"
@@ -775,19 +810,19 @@ comment:
 markdown:
   tables:
     show_logical_name: true
-    order: ["name", "logical_name", "comment", "type"]
+    order: ["name", "LogicalName", "comment", "type"]
     aliases:
       name: "Table Name"
-      logical_name: "日本語名"
+      LogicalName: "日本語名"
       comment: "Description"
       type: "Type"
 
   columns:
     show_logical_name: true
-    order: ["name", "logical_name", "type", "nullable", "comment"]
+    order: ["name", "LogicalName", "type", "nullable", "comment"]
     aliases:
       name: "Column Name"
-      logical_name: "項目名"
+      LogicalName: "項目名"
       type: "Data Type"
       nullable: "Required"
       comment: "Description"
@@ -817,7 +852,7 @@ markdown:
     show_logical_name: true
     aliases:
       name: "Nombre de Tabla"
-      logical_name: "Nombre Lógico"
+      LogicalName: "Nombre Lógico"
       comment: "Descripción"
       type: "Tipo"
 
@@ -825,7 +860,7 @@ markdown:
     show_logical_name: true
     aliases:
       name: "Nombre de Columna"
-      logical_name: "Nombre Lógico"
+      LogicalName: "Nombre Lógico"
       type: "Tipo de Dato"
       nullable: "Permite NULL"
       default: "Valor Predeterminado"
@@ -848,7 +883,7 @@ markdown:
     show_logical_name: true
     aliases:
       name: "Nom de Table"
-      logical_name: "Nom Logique"
+      LogicalName: "Nom Logique"
       comment: "Description"
       type: "Type"
 
@@ -856,7 +891,7 @@ markdown:
     show_logical_name: true
     aliases:
       name: "Nom de Colonne"
-      logical_name: "Nom Logique"
+      LogicalName: "Nom Logique"
       type: "Type de Données"
       nullable: "Autorise NULL"
       default: "Valeur par Défaut"
@@ -889,7 +924,7 @@ markdown:
        # Specific overrides
        specific:
          important_table:
-           order: ["logical_name", "name"]
+           order: ["LogicalName", "name"]
    ```
 
 ### Performance Optimization
@@ -920,7 +955,7 @@ markdown:
   columns:
     aliases:
       name: "Column Name"
-      logical_name: "Business Name"
+      LogicalName: "Business Name"
       type: "Data Type"
       nullable: "Required"
       comment: "Description"

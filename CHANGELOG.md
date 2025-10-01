@@ -1,5 +1,125 @@
 # Changelog
 
+## [Unreleased]
+
+### 🐛 Bug Fixes
+
+#### Critical: Fixed `constraints` and `indexes` markdown customization not working
+
+- **fix**: Fixed critical bug where `markdown.constraints` and `markdown.indexes` configuration was completely ignored
+  - **Root Cause**: `makeTableTemplateDataWithCustomization()` only implemented customization for columns, while constraints and indexes still used the old fixed-format code
+  - **Impact**: When using `show_logical_name`, `order`, or `aliases` configuration for constraints/indexes, the settings were ignored and default format was always used
+  - **Fix**: Implemented proper customization pipeline for constraints and indexes:
+    - Created `constraintsData()` function with full customization support (logical names, custom ordering, aliases)
+    - Created `indexesData()` function with full customization support
+    - Created generic `buildCustomizedObjectData()` function that works for any object type
+    - Integrated both functions into `makeTableTemplateDataWithCustomization()`
+  - **Breaking**: Fixed default `Order` in `setObjectDefaults()` for constraints and indexes to match actual schema field names:
+    - Constraints: `["name", "logical_name", "type", "columns", "comment"]` → `["Name", "Type", "Definition", "Comment"]`
+    - Indexes: `["name", "logical_name", "columns", "comment"]` → `["Name", "Definition", "Comment"]`
+  - **Verification**: Added comprehensive test `TestMd_ConstraintsAndIndexesCustomization` covering all customization scenarios
+
+## [v1.87.0](https://github.com/k1LoW/tbls/compare/v1.86.0...v1.87.0) - 2025-10-02
+
+### ⚠️ BREAKING CHANGES
+
+#### Logical Name Field Standardization
+
+The field name for logical names has been standardized to **`LogicalName`** (camelCase) across the entire codebase. This breaking change affects:
+
+**What Changed:**
+- Field name in markdown output: `"Logical Name"` → `"LogicalName"`
+- Field name in `order` configuration: `"logical_name"` → `"LogicalName"`
+- Field name in `aliases` configuration: `"logical_name"` → `"LogicalName"`
+- Code internal references: All variants normalized to `"LogicalName"`
+
+**What Stays the Same:**
+- YAML configuration keys remain unchanged: `show_logical_name` (with underscore)
+- Case-insensitive matching still works: `"logicalname"`, `"LogicalName"`, `"LOGICALNAME"` are all accepted in `order` arrays
+
+**Migration Required:**
+
+If you're using markdown customization with logical names, update your `.tbls.yml`:
+
+```yaml
+# ❌ OLD (v1.86.0 and earlier)
+markdown:
+  columns:
+    order: ["name", "logical_name", "comment"]  # ← "logical_name" with underscore
+    aliases:
+      logical_name: "Business Name"              # ← "logical_name" with underscore
+
+# ✅ NEW (v1.87.0 and later)
+markdown:
+  columns:
+    order: ["name", "LogicalName", "comment"]   # ← "LogicalName" camelCase
+    aliases:
+      LogicalName: "Business Name"              # ← "LogicalName" camelCase
+```
+
+**Why This Change:**
+
+- **Consistency**: Aligns with Go naming conventions (exported fields use camelCase)
+- **Clarity**: Single canonical form reduces confusion
+- **Maintainability**: Easier to search, refactor, and document
+
+**Impact:**
+
+- Markdown output will use `"LogicalName"` as the default header
+- Custom aliases will need to reference `"LogicalName"` instead of `"logical_name"`
+- Order configurations must use `"LogicalName"` (though case-insensitive matching still works)
+
+### 🐛 Bug Fixes
+
+#### Critical: Fixed `tables` configuration being incorrectly applied to `columns` output
+
+- **fix**: Fixed critical bug where `markdown.tables` configuration was incorrectly applied to column details in individual table pages
+  - **Root Cause**: `makeTableTemplateDataWithCustomization()` was passing `tableCustomConfig` to `customizeColumnsData()` instead of `columnsCustomConfig`
+  - **Impact**: When both `markdown.tables` and `markdown.columns` were configured with different settings, column output would incorrectly use the tables configuration
+  - **Fix**: Properly separated configuration retrieval and application:
+    - `markdown.tables` now only affects table list in `README.md`
+    - `markdown.columns` now properly affects column details in individual table pages (e.g., `users.md`)
+  - **Breaking**: This fix corrects the behavior to match the intended design. If you were relying on the buggy behavior, you may need to move your configuration from `markdown.tables` to `markdown.columns`
+
+#### Critical: Fixed alias configuration causing empty data rows
+
+- **fix**: Fixed critical bug where alias configuration caused all non-LogicalName columns to show empty values in data rows
+  - **Root Cause**: `adjustColumnHeader()` was applying aliases prematurely (before data mapping phase), causing mismatch between column identifiers and their data indices
+  - **Impact**: When using `aliases` configuration like `Name: "カラム名"`, headers displayed correctly but data rows were empty for all aliased fields except LogicalName
+  - **Fix**: Removed early alias application from `adjustColumnHeader()` (line 1183-1194), delaying it until `customizeColumnsData()` where proper mapping is established
+  - **Details**:
+    - When aliases were applied early, `headerIndexMap` used Japanese aliases as keys (e.g., "カラム名")
+    - But `determineFinalColumnStructure()` searched using English names from `order` array (e.g., "Name")
+    - This mismatch caused `SourceIndex = -1`, leading to empty data rows
+  - **Verification**: Added comprehensive regression test `TestMd_AliasWithAllFieldsPopulated` to verify the fix
+
+#### Other Bug Fixes
+
+- **fix**: Fixed `order` configuration to display only specified columns
+  - Previously, when using `order` configuration, both specified columns and default columns were displayed
+  - Now, only the columns listed in the `order` array will be shown in the output
+  - This applies to all object types: tables, columns, views, indexes, constraints, and functions
+- **fix**: Fixed empty data rows when using `order` configuration with tables and functions
+  - `tablesData` and `functionsData` functions now properly apply `order` and `show_logical_name` settings
+  - Fixed YAML unmarshaling for `TableCustomConfig` and `ColumnCustomConfig` to correctly read `show_logical_name` field
+  - Added case-insensitive field name matching for `order` configuration (e.g., "Name", "name", "LogicalName" are all accepted)
+  - Automatic filtering of `LogicalName` from `order` when `show_logical_name` is false
+
+### 📚 Documentation
+- **docs**: Updated all documentation to use `LogicalName` consistently
+  - Updated configuration examples in all documentation files
+  - Updated migration guide with v1.87.0 breaking changes
+  - Updated API reference to reflect field name standardization
+  - Added explicit note that only specified columns are displayed when using `order`
+  - Added note about case-insensitive field names in `order` array
+- **docs**: Added critical clarifications for `tables` vs `columns` configuration
+  - Added warning sections in `markdown-output-examples.md` explaining the difference between `tables` and `columns` configuration
+  - Added warning sections in `configuration-examples.md` with table showing configuration scope
+  - Added warning sections in `migration-guide.md` clarifying that `tables` and `columns` are independent
+  - All documentation now clearly states:
+    - `markdown.tables`: Controls table list in `README.md`
+    - `markdown.columns`: Controls column details in individual table pages
+
 ## [v1.86.0](https://github.com/k1LoW/tbls/compare/v1.85.5...v1.86.0) - 2025-09-23
 
 ### ✨ New Features

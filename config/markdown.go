@@ -32,10 +32,112 @@ type TableCustomConfig struct {
 	Specific map[string]*ObjectCustomConfig `yaml:"specific,omitempty"`
 }
 
+// MarshalYAML implements custom YAML marshaling for TableCustomConfig.
+func (t *TableCustomConfig) MarshalYAML() (interface{}, error) {
+	if t == nil {
+		return nil, nil
+	}
+
+	type Temp struct {
+		ShowLogicalName bool                            `yaml:"show_logical_name,omitempty"`
+		Order           []string                        `yaml:"order,omitempty"`
+		Aliases         map[string]string               `yaml:"aliases,omitempty"`
+		Specific        map[string]*ObjectCustomConfig `yaml:"specific,omitempty"`
+	}
+
+	temp := Temp{
+		Specific: t.Specific,
+	}
+
+	if t.ObjectCustomConfig != nil {
+		temp.ShowLogicalName = t.ObjectCustomConfig.ShowLogicalName
+		temp.Order = t.ObjectCustomConfig.Order
+		temp.Aliases = t.ObjectCustomConfig.Aliases
+	}
+
+	return temp, nil
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling for TableCustomConfig.
+func (t *TableCustomConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// First, unmarshal into a temporary struct with inline fields
+	type Temp struct {
+		ShowLogicalName bool                            `yaml:"show_logical_name,omitempty"`
+		Order           []string                        `yaml:"order,omitempty"`
+		Aliases         map[string]string               `yaml:"aliases,omitempty"`
+		Specific        map[string]*ObjectCustomConfig `yaml:"specific,omitempty"`
+	}
+	var temp Temp
+	if err := unmarshal(&temp); err != nil {
+		return err
+	}
+
+	// Create ObjectCustomConfig and populate it
+	t.ObjectCustomConfig = &ObjectCustomConfig{
+		ShowLogicalName: temp.ShowLogicalName,
+		Order:           temp.Order,
+		Aliases:         temp.Aliases,
+	}
+	t.Specific = temp.Specific
+
+	return nil
+}
+
 // ColumnCustomConfig is the configuration for column customization with specific table column settings.
 type ColumnCustomConfig struct {
 	*ObjectCustomConfig
 	Specific map[string]*ObjectCustomConfig `yaml:"specific,omitempty"`
+}
+
+// MarshalYAML implements custom YAML marshaling for ColumnCustomConfig.
+func (c *ColumnCustomConfig) MarshalYAML() (interface{}, error) {
+	if c == nil {
+		return nil, nil
+	}
+
+	type Temp struct {
+		ShowLogicalName bool                            `yaml:"show_logical_name,omitempty"`
+		Order           []string                        `yaml:"order,omitempty"`
+		Aliases         map[string]string               `yaml:"aliases,omitempty"`
+		Specific        map[string]*ObjectCustomConfig `yaml:"specific,omitempty"`
+	}
+
+	temp := Temp{
+		Specific: c.Specific,
+	}
+
+	if c.ObjectCustomConfig != nil {
+		temp.ShowLogicalName = c.ObjectCustomConfig.ShowLogicalName
+		temp.Order = c.ObjectCustomConfig.Order
+		temp.Aliases = c.ObjectCustomConfig.Aliases
+	}
+
+	return temp, nil
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling for ColumnCustomConfig.
+func (c *ColumnCustomConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// First, unmarshal into a temporary struct with inline fields
+	type Temp struct {
+		ShowLogicalName bool                            `yaml:"show_logical_name,omitempty"`
+		Order           []string                        `yaml:"order,omitempty"`
+		Aliases         map[string]string               `yaml:"aliases,omitempty"`
+		Specific        map[string]*ObjectCustomConfig `yaml:"specific,omitempty"`
+	}
+	var temp Temp
+	if err := unmarshal(&temp); err != nil {
+		return err
+	}
+
+	// Create ObjectCustomConfig and populate it
+	c.ObjectCustomConfig = &ObjectCustomConfig{
+		ShowLogicalName: temp.ShowLogicalName,
+		Order:           temp.Order,
+		Aliases:         temp.Aliases,
+	}
+	c.Specific = temp.Specific
+
+	return nil
 }
 
 // GetObjectConfig returns the appropriate object configuration.
@@ -457,24 +559,29 @@ func setObjectDefaults(config *ObjectCustomConfig, objectType string) {
 	// Note: ShowLogicalName is false by default in Go
 
 	// Set default order based on object type
+	// Note: For constraints and indexes, we don't set default Order.
+	// Instead, determineFinalColumnStructure() in md.go handles:
+	// 1. Using user-specified Order if provided
+	// 2. Auto-inserting LogicalName if ShowLogicalName=true and Order is not specified
+	// 3. Using natural column order if nothing is specified
 	if len(config.Order) == 0 {
 		switch objectType {
 		case "database":
-			config.Order = []string{"name", "logical_name", "comment"}
+			config.Order = []string{"name", "comment"}
 		case "schemas":
-			config.Order = []string{"name", "logical_name", "comment"}
+			config.Order = []string{"name", "comment"}
 		case "tables":
-			config.Order = []string{"name", "logical_name", "comment", "type"}
-		case "columns":
-			config.Order = []string{"name", "logical_name", "type", "nullable", "default", "comment"}
+			// Include all fields: name, columns (number of columns), comment, type
+			config.Order = []string{"name", "columns", "comment", "type"}
+		case "columns", "indexes", "constraints":
+			// Don't set default Order - let determineFinalColumnStructure handle it dynamically
+			// This allows LogicalName and Comment to be added based on actual data
 		case "views":
-			config.Order = []string{"name", "logical_name", "comment", "definition"}
-		case "indexes":
-			config.Order = []string{"name", "logical_name", "columns", "comment"}
-		case "constraints":
-			config.Order = []string{"name", "logical_name", "type", "columns", "comment"}
+			config.Order = []string{"name", "comment", "definition"}
 		case "functions":
-			config.Order = []string{"name", "logical_name", "return_type", "arguments", "comment"}
+			// Include all fields: name, return_type, arguments, type
+			// Note: Functions don't have a Comment field in schema.Function
+			config.Order = []string{"name", "return_type", "arguments", "type"}
 		default:
 			config.Order = []string{"name", "logical_name", "comment"}
 		}
